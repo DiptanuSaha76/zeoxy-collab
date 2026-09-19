@@ -117,3 +117,42 @@ export const removeAdmin = createServerFn({ method: "POST" })
     }
     return { ok: true };
   });
+const reorderGamesSchema = z.object({
+  order: z
+    .array(
+      z.object({
+        id: z.string(),
+        sort_order: z.number().int(),
+      }),
+    )
+    .min(1),
+});
+
+export const reorderGames = createServerFn({ method: "POST" })
+  .inputValidator((data) => reorderGamesSchema.parse(data))
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context, data }) => {
+    const { supabase, userId } = context;
+
+    await requireAdmin(supabase as any, userId);
+
+    const { supabaseAdmin } =
+      await import("@/integrations/supabase/client.server");
+
+    const results = await Promise.all(
+      data.order.map((row) =>
+        supabaseAdmin
+          .from("games")
+          .update({
+            sort_order: row.sort_order,
+          })
+          .eq("id", row.id),
+      ),
+    );
+
+    const firstError = results.find((r) => r.error)?.error;
+
+    if (firstError) throw firstError;
+
+    return { ok: true };
+  });

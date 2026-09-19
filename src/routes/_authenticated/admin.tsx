@@ -3,6 +3,25 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+
+import { CSS } from "@dnd-kit/utilities";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -24,6 +43,7 @@ import {
   listAdmins,
   listClients,
   removeAdmin,
+  reorderGames,
 } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/_authenticated/admin")({
@@ -146,16 +166,180 @@ const emptyGame: GameForm = {
   is_active: true,
   sort_order: "0",
 };
+function SortableGameRow({
+  g,
+  onEdit,
+  onToggle,
+  onRemove,
+}: {
+  g: Game;
+  onEdit: (g: Game) => void;
+  onToggle: (g: Game) => void;
+  onRemove: (g: Game) => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: g.id,
+  });
 
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
+      className={`glass-panel flex items-center justify-between gap-3 rounded-2xl p-3 ${isDragging ? "opacity-60" : ""
+        }`}
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        <button
+          type="button"
+          aria-label={`Reorder ${g.name}`}
+          {...attributes}
+          {...listeners}
+          className="shrink-0 cursor-grab touch-none select-none rounded-lg px-2 py-1 text-faint hover:text-ink active:cursor-grabbing"
+        >
+          ⠿
+        </button>
+
+        <div className="min-w-0">
+          <p className="truncate font-display text-sm font-semibold">
+            {g.name}
+          </p>
+
+          <p className="truncate text-[11px] text-faint">
+            /{g.slug} · {g.category} · {g.id_label}
+            {g.requires_server_id ? " + server" : ""}
+            {g.is_active ? "" : " · hidden"}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex shrink-0 flex-wrap gap-2">
+        <button
+          type="button"
+          className={btn}
+          onClick={() => onEdit(g)}
+        >
+          Edit
+        </button>
+
+        <button
+          type="button"
+          className={btn}
+          onClick={() => onToggle(g)}
+        >
+          {g.is_active ? "Deactivate" : "Activate"}
+        </button>
+
+        <button
+          type="button"
+          className={`${btn} border-rose/40 text-rose`}
+          onClick={() => onRemove(g)}
+        >
+          Delete
+        </button>
+      </div>
+    </div>
+  );
+}
 function GamesTab() {
   const qc = useQueryClient();
   const { data: games = [] } = useQuery(gamesQuery({ includeInactive: true }));
   const [form, setForm] = useState<GameForm>({ ...emptyGame });
   const [editing, setEditing] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+
+  const [order, setOrder] = useState<string[]>([]);
+  const [savingOrder, setSavingOrder] = useState(false);
+
+  const reorderFn = useServerFn(reorderGames);
+
   const set = <K extends keyof GameForm>(k: K, v: GameForm[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
+  useEffect(() => {
+    setOrder((prev) => {
+      const isDirty =
+        prev.length === games.length &&
+        prev.some((id, i) => id !== games[i]?.id);
 
+      if (!prev.length || !isDirty) {
+        return games.map((g) => g.id);
+      }
+
+      const ids = new Set(games.map((g) => g.id));
+      const kept = prev.filter((id) => ids.has(id));
+      const keptSet = new Set(kept);
+
+      return [
+        ...kept,
+        ...games.map((g) => g.id).filter((id) => !keptSet.has(id)),
+      ];
+    });
+  }, [games]);
+
+  const orderedGames = order
+    .map((id) => games.find((g) => g.id === id))
+    .filter((g): g is Game => Boolean(g));
+
+  const orderDirty =
+    order.length === games.length &&
+    order.some((id, i) => id !== games[i]?.id);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 5 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
+
+  function onDragEnd(e: DragEndEvent) {
+    const { active, over } = e;
+
+    if (!over || active.id === over.id) return;
+
+    setOrder((prev) =>
+      arrayMove(
+        prev,
+        prev.indexOf(String(active.id)),
+        prev.indexOf(String(over.id)),
+      ),
+    );
+  }
+
+  async function saveOrder() {
+    setSavingOrder(true);
+
+    try {
+      await reorderFn({
+        data: {
+          order: orderedGames.map((g, i) => ({
+            id: g.id,
+            sort_order: i,
+          })),
+        },
+      });
+
+      toast.success("Game order saved");
+
+      await qc.invalidateQueries({
+        queryKey: ["games"],
+      });
+    } catch {
+      toast.error("Could not save the new order");
+    } finally {
+      setSavingOrder(false);
+    }
+  }
   async function toggleActive(g: Game) {
     const { error } = await supabase
       .from("games")
@@ -305,7 +489,6 @@ function GamesTab() {
           <label><Label>Max length</Label><input type="number" className={field} value={form.id_max_len} onChange={(e) => set("id_max_len", e.target.value)} /></label>
           <label className="sm:col-span-2"><Label>ID help text</Label><input className={field} value={form.id_help} onChange={(e) => set("id_help", e.target.value)} placeholder="Where to find your UID" /></label>
           <label><Label>Server label</Label><input className={field} value={form.server_label} onChange={(e) => set("server_label", e.target.value)} /></label>
-          <label><Label>Sort order</Label><input type="number" className={field} value={form.sort_order} onChange={(e) => set("sort_order", e.target.value)} /></label>
           <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={form.requires_server_id} onChange={(e) => set("requires_server_id", e.target.checked)} /> Needs server / zone ID</label>
           <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={form.is_active} onChange={(e) => set("is_active", e.target.checked)} /> Active</label>
         </div>
@@ -316,29 +499,41 @@ function GamesTab() {
       </div>
 
       <div className="space-y-2">
-        {games.map((g) => (
-          <div key={g.id} className="glass-panel flex items-center justify-between gap-3 rounded-2xl p-3">
-            <div className="min-w-0">
-              <p className="truncate font-display text-sm font-semibold">{g.name}</p>
-              <p className="truncate text-[11px] text-faint">
-                /{g.slug} · {g.category} · {g.id_label}
-                {g.requires_server_id ? " + server" : ""} {g.is_active ? "" : "· hidden"}
-              </p>
-            </div>
-            <div className="flex shrink-0 flex-wrap gap-2">
-              <button className={btn} onClick={() => edit(g)}>Edit</button>
-              <button className={btn} onClick={() => toggleActive(g)}>
-                {g.is_active ? "Deactivate" : "Activate"}
-              </button>
-              <button
-                className={`${btn} border-rose/40 text-rose`}
-                onClick={() => remove(g)}
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        ))}
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[10px] uppercase tracking-wider text-faint">
+            Drag to reorder
+          </p>
+
+          <button
+            type="button"
+            className={primary}
+            disabled={!orderDirty || savingOrder}
+            onClick={saveOrder}
+          >
+            {savingOrder ? "Saving…" : "Save Order"}
+          </button>
+        </div>
+
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={onDragEnd}
+        >
+          <SortableContext
+            items={orderedGames.map((g) => g.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            {orderedGames.map((g) => (
+              <SortableGameRow
+                key={g.id}
+                g={g}
+                onEdit={edit}
+                onToggle={toggleActive}
+                onRemove={remove}
+              />
+            ))}
+          </SortableContext>
+        </DndContext>
       </div>
     </div>
   );
