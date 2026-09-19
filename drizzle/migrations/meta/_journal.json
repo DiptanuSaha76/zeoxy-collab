@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1789631705476,
+      "tag": "0000_username_phone_login",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789703669011,
+      "tag": "0001_smile_coin_pricing",
+      "breakpoints": true
+    }
+  ]
+}
