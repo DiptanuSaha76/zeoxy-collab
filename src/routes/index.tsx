@@ -44,41 +44,6 @@ const FEATURES = [
   { icon: Headset, title: "Support that answers", text: "Live help from 9am to 2am, every day." },
 ];
 
-const REVIEWS = [
-  {
-    name: "Aditya Menon",
-    initials: "AM",
-    date: "12 Sep 2026",
-    verified: true,
-    stars: 5,
-    text: "Ordered the weekly pass at 2am and it landed before I closed the app. Pricing better than the in-game store.",
-  },
-  {
-    name: "Sneha Raut",
-    initials: "SR",
-    date: "08 Sep 2026",
-    verified: true,
-    stars: 5,
-    text: "Third order this month. The ID check step saved me from sending diamonds to the wrong zone.",
-  },
-  {
-    name: "Kabir Shah",
-    initials: "KS",
-    date: "01 Sep 2026",
-    verified: true,
-    stars: 5,
-    text: "Delivery took about six minutes during peak hours, still quick. UPI checkout was painless.",
-  },
-  {
-    name: "Meera Iyer",
-    initials: "MI",
-    date: "27 Aug 2026",
-    verified: false,
-    stars: 5,
-    text: "Support replied on Telegram in a couple of minutes when I mistyped my user ID. Sorted it immediately.",
-  },
-];
-
 function Home() {
   const { data: banners = [] } = useQuery(bannersQuery());
   const { data: games = [] } = useQuery(gamesQuery());
@@ -205,9 +170,6 @@ function Home() {
         {games.length === 0 ? (
           <p className="text-sm text-faint">Games are being added — check back soon.</p>
         ) : null}
-        <p className="mt-4 text-center text-[11px] text-faint">
-          Instant delivery · Secured payments
-        </p>
       </section>
 
       {/* Features strip */}
@@ -218,36 +180,6 @@ function Home() {
               <f.icon className="size-4 text-violet" />
               <p className="font-display text-xs font-semibold">{f.title}</p>
               <p className="text-[11px] leading-relaxed text-faint">{f.text}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* What gamers say */}
-      <section className="mt-10 px-4 sm:px-6">
-        <h2 className="font-display text-lg font-semibold sm:text-xl">What gamers say</h2>
-        <p className="mt-0.5 text-[11px] text-faint sm:text-xs">Verified reviews from real customers</p>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {REVIEWS.map((r) => (
-            <div key={r.name} className="glass-panel rounded-2xl p-4">
-              <div className="flex items-center gap-2.5">
-                <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-violet/20 text-[10px] font-semibold text-violet">
-                  {r.initials}
-                </div>
-                <div className="min-w-0">
-                  <p className="flex items-center gap-1 truncate text-xs font-medium">
-                    {r.name}
-                    {r.verified ? <VerifiedIcon className="size-3 shrink-0 text-lime" /> : null}
-                  </p>
-                  <p className="text-[10px] text-faint">{r.date}</p>
-                </div>
-              </div>
-              <div className="mt-2 flex gap-0.5">
-                {Array.from({ length: r.stars }).map((_, i) => (
-                  <Star key={i} className="size-3 fill-amber-400 text-amber-400" />
-                ))}
-              </div>
-              <p className="mt-2 text-[11px] leading-relaxed text-subtle">{r.text}</p>
             </div>
           ))}
         </div>

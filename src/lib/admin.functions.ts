@@ -89,7 +89,7 @@ export const addAdminByEmail = createServerFn({ method: "POST" })
       if (error) throw error;
       return { created: true, invite: false };
     }
-    const { error } = await supabase.from("admin_invites").insert({ email, created_by: userId });
+    const { error } = await supabase.from("admin_invites").insert({ email, invited_by: userId });
     if (error) throw error;
     return { created: true, invite: true };
   });

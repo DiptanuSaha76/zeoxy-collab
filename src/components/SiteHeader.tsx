@@ -116,15 +116,6 @@ export function SiteFooter() {
   const { isAdmin } = useAuth();
   return (
     <footer className="relative z-10 mb-6 mt-8 flex items-center justify-between px-4 sm:px-6">
-      <p className="text-[11px] text-faint">© 2026 Recharge</p>
-      <div className="flex gap-3">
-        <Link to="/orders" className="text-[11px] text-subtle">
-          Orders
-        </Link>
-        <Link to={isAdmin ? "/admin" : "/auth"} className="text-[11px] text-subtle">
-          Admin
-        </Link>
-      </div>
     </footer>
   );
 }

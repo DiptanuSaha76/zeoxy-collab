@@ -205,10 +205,10 @@ function SortableGameRow({
         transform: CSS.Transform.toString(transform),
         transition,
       }}
-      className={`glass-panel flex items-center justify-between gap-3 rounded-2xl p-3 ${isDragging ? "opacity-60" : ""
+      className={`glass-panel flex w-full min-w-0 flex-wrap items-center gap-3 rounded-2xl p-3 ${isDragging ? "opacity-60" : ""
         }`}
     >
-      <div className="flex min-w-0 items-center gap-3">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
         <button
           type="button"
           aria-label={`Reorder ${g.name}`}
@@ -232,7 +232,7 @@ function SortableGameRow({
         </div>
       </div>
 
-      <div className="flex shrink-0 flex-wrap gap-2">
+      <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:shrink-0">
         <button
           type="button"
           className={btn}
@@ -344,8 +344,15 @@ function GamesTab() {
       await qc.invalidateQueries({
         queryKey: ["games"],
       });
-    } catch {
-      toast.error("Could not save the new order");
+    } catch (error) {
+      console.error("SAVE ORDER ERROR:", error);
+
+      const message =
+        error instanceof Error
+          ? error.message
+          : String(error);
+
+      toast.error(`Could not save order: ${message}`);
     } finally {
       setSavingOrder(false);
     }
@@ -436,8 +443,8 @@ function GamesTab() {
   }
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[1fr_1.1fr] lg:items-start">
-      <div className="glass-panel rounded-2xl p-4">
+    <div className="grid min-w-0 gap-5 lg:grid-cols-[1fr_1.1fr] lg:items-start">
+      <div className="glass-panel order-2 min-w-0 rounded-2xl p-4 lg:order-none">
         <p className="font-display text-sm font-semibold">{editing ? "Edit game" : "Add game"}</p>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <label><Label>Name</Label><input className={field} value={form.name} onChange={(e) => set("name", e.target.value)} /></label>
@@ -508,8 +515,8 @@ function GamesTab() {
         </div>
       </div>
 
-      <div className="space-y-2">
-        <div className="flex items-center justify-between gap-2">
+      <div className="order-1 min-w-0 space-y-2 lg:order-none">
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
           <p className="text-[10px] uppercase tracking-wider text-faint">
             Drag to reorder
           </p>
@@ -1186,15 +1193,15 @@ function SmileCoinTab() {
 
   const draft: CoinRate | null = valid
     ? {
-        id: "draft",
-        money_spent: spentN,
-        coins_received: coinsN,
-        coin_rate: coinRateOf(spentN, coinsN),
-        profit_percent: profitN,
-        is_active: true,
-        note: null,
-        created_at: new Date().toISOString(),
-      }
+      id: "draft",
+      money_spent: spentN,
+      coins_received: coinsN,
+      coin_rate: coinRateOf(spentN, coinsN),
+      profit_percent: profitN,
+      is_active: true,
+      note: null,
+      created_at: new Date().toISOString(),
+    }
     : null;
 
   const discount = settings?.discount_percent ?? 0;
