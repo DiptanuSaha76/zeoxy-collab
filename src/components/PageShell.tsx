@@ -3,7 +3,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { Moon, Sun, ShieldCheck, LogOut, LogIn, Receipt } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Aurora } from "@/components/Aurora";
-import { SiteHeader } from "@/components/SiteHeader";
+import { SiteHeader, SiteFooter } from "@/components/SiteHeader";
 import { MobileDrawer, useMobileMenu } from "@/components/MobileMenu";
 import { useTheme } from "@/lib/theme";
 import { useAuth } from "@/hooks/useAuth";
@@ -93,6 +93,7 @@ export function PageShell({
       >
         <SiteHeader onMenuClick={() => setOpen(true)} />
         <main className="flex-1">{children}</main>
+        <SiteFooter />
       </div>
     </div>
   );

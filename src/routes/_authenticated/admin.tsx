@@ -26,17 +26,21 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import {
   ORDER_STATUSES,
+  activeCoinRateQuery,
   bannersQuery,
+  coinRatesQuery,
   gamesQuery,
   money,
   ordersQuery,
   packsQuery,
   settingsQuery,
-  uploadGameImage,
+  uploadStoreImage,
   type Banner,
   type Game,
+  type Order,
   type Pack,
 } from "@/lib/store";
+import { coinRateOf, computePricing, customerPrice, round2, type CoinRate } from "@/lib/pricing";
 import {
   addAdminByEmail,
   listAdminInvites,
@@ -45,6 +49,8 @@ import {
   removeAdmin,
   reorderGames,
 } from "@/lib/admin.functions";
+
+const uploadGameImage = uploadStoreImage;
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
@@ -61,11 +67,13 @@ export const Route = createFileRoute("/_authenticated/admin")({
 });
 
 const TABS = [
+  "Dashboard",
   "Games",
   "Packages",
   "Banners",
   "Orders",
   "Clients",
+  "Smile Coin",
   "Discount",
   "Admins",
 ] as const;
@@ -84,7 +92,7 @@ function Label({ children }: { children: React.ReactNode }) {
 function AdminPage() {
   const { user, isAdmin, ready } = useAuth();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<Tab>("Games");
+  const [tab, setTab] = useState<Tab>("Dashboard");
 
   useEffect(() => {
     if (ready && user && !isAdmin) {
@@ -119,11 +127,13 @@ function AdminPage() {
       </div>
 
       <div className="mt-5">
+        {tab === "Dashboard" && <DashboardTab />}
         {tab === "Games" && <GamesTab />}
         {tab === "Packages" && <PackagesTab />}
         {tab === "Banners" && <BannersTab />}
         {tab === "Orders" && <OrdersTab />}
         {tab === "Clients" && <ClientsTab />}
+        {tab === "Smile Coin" && <SmileCoinTab />}
         {tab === "Discount" && <DiscountTab />}
         {tab === "Admins" && <AdminsTab />}
       </div>
@@ -553,17 +563,20 @@ function PackagesTab() {
     ...packsQuery(gameId || undefined, { includeInactive: true }),
     enabled: Boolean(gameId),
   });
+  const { data: rate } = useQuery(activeCoinRateQuery());
+  const { data: settings } = useQuery(settingsQuery());
 
   type PackForm = {
     label: string;
     amount: string;
     price: string;
+    smile_coin_cost: string;
     bonus_text: string;
     is_popular: boolean;
     is_active: boolean;
     sort_order: string;
   };
-  const empty: PackForm = { label: "", amount: "0", price: "0", bonus_text: "", is_popular: false, is_active: true, sort_order: "0" };
+  const empty: PackForm = { label: "", amount: "0", price: "0", smile_coin_cost: "0", bonus_text: "", is_popular: false, is_active: true, sort_order: "0" };
   const [form, setForm] = useState<PackForm>({ ...empty });
   const [editing, setEditing] = useState<string | null>(null);
   const set = <K extends keyof PackForm>(k: K, v: PackForm[K]) =>
@@ -578,11 +591,17 @@ function PackagesTab() {
       toast.error("Label is required");
       return;
     }
+    const coins = Number(form.smile_coin_cost);
+    if (Number.isNaN(coins) || coins < 0) {
+      toast.error("Smile Coin cost must be zero or more");
+      return;
+    }
     const payload = {
       game_id: gameId,
       label: form.label.trim(),
       amount: Number(form.amount) || 0,
       price: Number(form.price) || 0,
+      smile_coin_cost: Number(form.smile_coin_cost) || 0,
       bonus_text: form.bonus_text || null,
       is_popular: form.is_popular,
       is_active: form.is_active,
@@ -616,6 +635,7 @@ function PackagesTab() {
       label: p.label,
       amount: String(p.amount),
       price: String(p.price),
+      smile_coin_cost: String(p.smile_coin_cost ?? 0),
       bonus_text: p.bonus_text ?? "",
       is_popular: p.is_popular,
       is_active: p.is_active,
@@ -635,12 +655,40 @@ function PackagesTab() {
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <label><Label>Label</Label><input className={field} value={form.label} onChange={(e) => set("label", e.target.value)} placeholder="500 Gems" /></label>
           <label><Label>Amount</Label><input type="number" className={field} value={form.amount} onChange={(e) => set("amount", e.target.value)} /></label>
-          <label><Label>Price (₹)</Label><input type="number" className={field} value={form.price} onChange={(e) => set("price", e.target.value)} /></label>
+          <label><Label>Smile Coin cost</Label><input type="number" min={0} step="0.01" className={field} value={form.smile_coin_cost} onChange={(e) => set("smile_coin_cost", e.target.value)} placeholder="65" /></label>
+          <label><Label>Fallback price (Rs.)</Label><input type="number" className={field} value={form.price} onChange={(e) => set("price", e.target.value)} /></label>
           <label><Label>Sort order</Label><input type="number" className={field} value={form.sort_order} onChange={(e) => set("sort_order", e.target.value)} /></label>
           <label className="sm:col-span-2"><Label>Bonus text</Label><input className={field} value={form.bonus_text} onChange={(e) => set("bonus_text", e.target.value)} placeholder="+50 bonus" /></label>
           <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={form.is_popular} onChange={(e) => set("is_popular", e.target.checked)} /> Popular</label>
           <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={form.is_active} onChange={(e) => set("is_active", e.target.checked)} /> Active</label>
         </div>
+        {(() => {
+          const preview = computePricing(
+            { price: Number(form.price) || 0, smile_coin_cost: Number(form.smile_coin_cost) || 0 },
+            rate,
+          );
+          const shown = customerPrice(
+            { price: Number(form.price) || 0, smile_coin_cost: Number(form.smile_coin_cost) || 0 },
+            rate,
+            settings?.discount_percent ?? 0,
+          );
+          return (
+            <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3 text-[11px] text-faint">
+              <p className="mb-1 font-display text-xs font-semibold text-subtle">Price preview</p>
+              {rate ? (
+                <>
+                  <p>Coin rate: Rs. {round2(rate.coin_rate)} per coin</p>
+                  <p>Real cost: {money(preview.real_cost)} · Profit {preview.profit_percent}%</p>
+                </>
+              ) : (
+                <p>No active Smile Coin rate — the fallback price is used.</p>
+              )}
+              <p className="mt-1 font-display text-sm font-semibold text-ink">
+                Customer pays {money(shown)}
+              </p>
+            </div>
+          );
+        })()}
         <div className="mt-4 flex gap-2">
           <button className={primary} onClick={save}>{editing ? "Save changes" : "Add package"}</button>
           {editing ? <button className={btn} onClick={() => { setEditing(null); setForm({ ...empty }); }}>Cancel</button> : null}
@@ -652,7 +700,12 @@ function PackagesTab() {
           <div key={p.id} className="glass-panel flex items-center justify-between gap-3 rounded-2xl p-3">
             <div className="min-w-0">
               <p className="truncate font-display text-sm font-semibold">{p.label}</p>
-              <p className="text-[11px] text-faint">{money(p.price)} {p.is_popular ? "· popular" : ""} {p.is_active ? "" : "· hidden"}</p>
+              <p className="text-[11px] text-faint">
+                {money(customerPrice(p, rate, settings?.discount_percent ?? 0))}
+                {p.smile_coin_cost ? ` · ${p.smile_coin_cost} coins` : ""}
+                {p.is_popular ? " · popular" : ""}
+                {p.is_active ? "" : " · hidden"}
+              </p>
             </div>
             <div className="flex shrink-0 gap-2">
               <button className={btn} onClick={() => edit(p)}>Edit</button>
@@ -683,6 +736,7 @@ function BannersTab() {
   const empty: BannerForm = { title: "", subtitle: "", badge: "Featured", image_url: "", game_id: "", is_active: true, sort_order: "0" };
   const [form, setForm] = useState<BannerForm>({ ...empty });
   const [editing, setEditing] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const set = <K extends keyof BannerForm>(k: K, v: BannerForm[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
@@ -750,7 +804,49 @@ function BannersTab() {
               {games.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
             </select>
           </label>
-          <label className="sm:col-span-2"><Label>Image URL</Label><input className={field} value={form.image_url} onChange={(e) => set("image_url", e.target.value)} /></label>
+          <div className="sm:col-span-2">
+            <Label>Banner image</Label>
+            <div className="flex items-center gap-3">
+              {form.image_url ? (
+                <img
+                  src={form.image_url}
+                  alt="Banner preview"
+                  className="h-16 w-28 shrink-0 rounded-xl object-cover"
+                />
+              ) : (
+                <div className="h-16 w-28 shrink-0 rounded-xl bg-muted" />
+              )}
+              <div className="min-w-0 flex-1">
+                <input
+                  type="file"
+                  accept="image/*"
+                  disabled={uploading}
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (!file) return;
+                    setUploading(true);
+                    try {
+                      const url = await uploadStoreImage(file);
+                      set("image_url", url);
+                      toast.success("Image uploaded");
+                    } catch {
+                      toast.error("Could not upload that image");
+                    }
+                    setUploading(false);
+                  }}
+                  className="w-full text-xs file:mr-3 file:rounded-lg file:border-0 file:bg-muted file:px-3 file:py-2 file:text-xs"
+                />
+                <input
+                  className={`${field} mt-2`}
+                  value={form.image_url}
+                  onChange={(e) => set("image_url", e.target.value)}
+                  placeholder="…or paste an image link"
+                />
+              </div>
+            </div>
+            {uploading ? <p className="mt-1 text-[11px] text-faint">Uploading…</p> : null}
+          </div>
           <label><Label>Sort order</Label><input type="number" className={field} value={form.sort_order} onChange={(e) => set("sort_order", e.target.value)} /></label>
           <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={form.is_active} onChange={(e) => set("is_active", e.target.checked)} /> Active</label>
         </div>
@@ -1059,6 +1155,418 @@ function DiscountTab() {
         <p className="mt-3 text-[11px] text-faint">
           Currently live: {settings?.discount_percent ?? 0}% off
         </p>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Smile Coin pricing ---------------- */
+
+function SmileCoinTab() {
+  const qc = useQueryClient();
+  const { data: rate } = useQuery(activeCoinRateQuery());
+  const { data: history = [] } = useQuery(coinRatesQuery());
+  const { data: settings } = useQuery(settingsQuery());
+  const { data: packs = [] } = useQuery(packsQuery(undefined, { includeInactive: true }));
+  const { data: games = [] } = useQuery(gamesQuery({ includeInactive: true }));
+
+  const [money_spent, setMoneySpent] = useState("100");
+  const [coins, setCoins] = useState("100");
+  const [profit, setProfit] = useState("20");
+  const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const spentN = Number(money_spent);
+  const coinsN = Number(coins);
+  const profitN = Number(profit);
+  const valid =
+    Number.isFinite(spentN) && spentN > 0 &&
+    Number.isFinite(coinsN) && coinsN > 0 &&
+    Number.isFinite(profitN) && profitN >= 0;
+
+  const draft: CoinRate | null = valid
+    ? {
+        id: "draft",
+        money_spent: spentN,
+        coins_received: coinsN,
+        coin_rate: coinRateOf(spentN, coinsN),
+        profit_percent: profitN,
+        is_active: true,
+        note: null,
+        created_at: new Date().toISOString(),
+      }
+    : null;
+
+  const discount = settings?.discount_percent ?? 0;
+  const pricedPacks = packs.filter((p) => p.smile_coin_cost > 0).slice(0, 12);
+
+  async function apply() {
+    if (!valid || !draft) {
+      toast.error("Enter money spent, coins received and a profit % greater than zero");
+      return;
+    }
+    if (
+      !window.confirm(
+        `Apply new rate? Rs. ${round2(draft.coin_rate)} per coin with ${profitN}% profit — every package price updates instantly.`,
+      )
+    )
+      return;
+    setSaving(true);
+    const { error: offErr } = await supabase
+      .from("coin_rates")
+      .update({ is_active: false })
+      .eq("is_active", true);
+    if (offErr) {
+      setSaving(false);
+      toast.error(offErr.message);
+      return;
+    }
+    const { error } = await supabase.from("coin_rates").insert({
+      money_spent: spentN,
+      coins_received: coinsN,
+      coin_rate: round2(coinRateOf(spentN, coinsN) * 10000) / 10000,
+      profit_percent: profitN,
+      is_active: true,
+      note: note.trim() || null,
+    });
+    setSaving(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("New Smile Coin rate is live");
+    setNote("");
+    qc.invalidateQueries({ queryKey: ["coin-rate"] });
+    qc.invalidateQueries({ queryKey: ["coin-rates"] });
+    qc.invalidateQueries({ queryKey: ["packages"] });
+  }
+
+  async function reactivate(r: CoinRate) {
+    if (!window.confirm("Make this older rate active again?")) return;
+    await supabase.from("coin_rates").update({ is_active: false }).eq("is_active", true);
+    const { error } = await supabase.from("coin_rates").update({ is_active: true }).eq("id", r.id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Rate restored");
+    qc.invalidateQueries({ queryKey: ["coin-rate"] });
+    qc.invalidateQueries({ queryKey: ["coin-rates"] });
+  }
+
+  return (
+    <div className="grid gap-5 lg:grid-cols-[1fr_1.1fr] lg:items-start">
+      <div className="space-y-4">
+        <div className="glass-panel rounded-2xl p-4">
+          <p className="font-display text-sm font-semibold">New Smile Coin rate</p>
+          <p className="mt-1 text-[11px] text-faint">
+            Enter what you paid and how many coins you received. Every package price recalculates
+            automatically.
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            <label>
+              <Label>Money spent (Rs.)</Label>
+              <input type="number" min={0} step="0.01" className={field} value={money_spent} onChange={(e) => setMoneySpent(e.target.value)} />
+            </label>
+            <label>
+              <Label>Coins received</Label>
+              <input type="number" min={0} step="0.01" className={field} value={coins} onChange={(e) => setCoins(e.target.value)} />
+            </label>
+            <label>
+              <Label>Profit %</Label>
+              <input type="number" min={0} step="0.01" className={field} value={profit} onChange={(e) => setProfit(e.target.value)} />
+            </label>
+            <label className="sm:col-span-3">
+              <Label>Note (optional)</Label>
+              <input className={field} value={note} onChange={(e) => setNote(e.target.value)} placeholder="USDT at 105" />
+            </label>
+          </div>
+          {!valid ? (
+            <p className="mt-2 text-[11px] text-rose">
+              Money spent and coins received must be greater than zero.
+            </p>
+          ) : (
+            <p className="mt-2 text-[11px] text-faint">
+              New coin rate: <span className="text-subtle">Rs. {round2(coinRateOf(spentN, coinsN) * 10000) / 10000}</span> per coin
+            </p>
+          )}
+          <button className={`${primary} mt-4`} disabled={!valid || saving} onClick={apply}>
+            {saving ? "Applying…" : "Preview & apply rate"}
+          </button>
+        </div>
+
+        <div className="glass-panel rounded-2xl p-4">
+          <p className="font-display text-sm font-semibold">Currently live</p>
+          {rate ? (
+            <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-faint sm:grid-cols-4">
+              <div><p className="text-subtle">Rs. {rate.money_spent}</p><p>spent</p></div>
+              <div><p className="text-subtle">{rate.coins_received}</p><p>coins</p></div>
+              <div><p className="text-subtle">Rs. {round2(rate.coin_rate * 10000) / 10000}</p><p>per coin</p></div>
+              <div><p className="text-subtle">{rate.profit_percent}%</p><p>profit</p></div>
+            </div>
+          ) : (
+            <p className="mt-2 text-[11px] text-faint">No active rate yet — fallback prices are used.</p>
+          )}
+        </div>
+
+        <div className="glass-panel rounded-2xl p-4">
+          <p className="font-display text-sm font-semibold">Rate history</p>
+          <div className="mt-3 space-y-2">
+            {history.map((r) => (
+              <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/5 p-2.5">
+                <div className="min-w-0">
+                  <p className="text-xs">
+                    Rs. {r.money_spent} → {r.coins_received} coins · {r.profit_percent}% profit
+                  </p>
+                  <p className="text-[11px] text-faint">
+                    {new Date(r.created_at).toLocaleString()}
+                    {r.note ? ` · ${r.note}` : ""}
+                    {r.is_active ? " · active" : ""}
+                  </p>
+                </div>
+                {r.is_active ? (
+                  <span className="rounded-full border border-cyan/30 bg-cyan/10 px-2 py-0.5 text-[10px] text-cyan">Live</span>
+                ) : (
+                  <button className={btn} onClick={() => reactivate(r)}>Restore</button>
+                )}
+              </div>
+            ))}
+            {history.length === 0 ? <p className="text-[11px] text-faint">No rates yet.</p> : null}
+          </div>
+        </div>
+      </div>
+
+      <div className="glass-panel rounded-2xl p-4">
+        <p className="font-display text-sm font-semibold">Price preview with the new rate</p>
+        <p className="mt-1 text-[11px] text-faint">
+          Customer prices include the {discount}% site discount.
+        </p>
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full text-left text-[11px]">
+            <thead className="text-faint">
+              <tr>
+                <th className="py-1.5 pr-2 font-normal">Package</th>
+                <th className="py-1.5 pr-2 font-normal">Coins</th>
+                <th className="py-1.5 pr-2 font-normal">Cost</th>
+                <th className="py-1.5 pr-2 font-normal">Now</th>
+                <th className="py-1.5 font-normal">New</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pricedPacks.map((p) => {
+                const game = games.find((g) => g.id === p.game_id);
+                const now = customerPrice(p, rate, discount);
+                const next = customerPrice(p, draft, discount);
+                return (
+                  <tr key={p.id} className="border-t border-white/10">
+                    <td className="py-1.5 pr-2">
+                      <span className="text-subtle">{p.label}</span>
+                      <span className="text-faint"> · {game?.name ?? ""}</span>
+                    </td>
+                    <td className="py-1.5 pr-2 text-faint">{p.smile_coin_cost}</td>
+                    <td className="py-1.5 pr-2 text-faint">
+                      {money(computePricing(p, draft).real_cost)}
+                    </td>
+                    <td className="py-1.5 pr-2 text-faint">{money(now)}</td>
+                    <td className="py-1.5 font-display font-semibold">{money(next)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {pricedPacks.length === 0 ? (
+            <p className="text-[11px] text-faint">
+              No packages have a Smile Coin cost yet — add one in the Packages tab.
+            </p>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Dashboard ---------------- */
+
+const RANGES = ["Today", "7 Days", "30 Days", "This Month", "All Time", "Custom"] as const;
+type Range = (typeof RANGES)[number];
+
+function rangeStart(range: Range): Date | null {
+  const now = new Date();
+  if (range === "Today") return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (range === "7 Days") return new Date(now.getTime() - 7 * 86400000);
+  if (range === "30 Days") return new Date(now.getTime() - 30 * 86400000);
+  if (range === "This Month") return new Date(now.getFullYear(), now.getMonth(), 1);
+  return null;
+}
+
+function Donut({ cost, profit }: { cost: number; profit: number }) {
+  const total = cost + profit;
+  const r = 52;
+  const c = 2 * Math.PI * r;
+  const costLen = total > 0 ? (cost / total) * c : 0;
+  return (
+    <svg viewBox="0 0 140 140" className="size-40 shrink-0 -rotate-90">
+      <circle cx="70" cy="70" r={r} fill="none" strokeWidth="16" className="stroke-white/10" />
+      {total > 0 ? (
+        <>
+          <circle
+            cx="70" cy="70" r={r} fill="none" strokeWidth="16" strokeLinecap="round"
+            stroke="oklch(0.72 0.14 200)"
+            strokeDasharray={`${costLen} ${c - costLen}`}
+          />
+          <circle
+            cx="70" cy="70" r={r} fill="none" strokeWidth="16" strokeLinecap="round"
+            stroke="oklch(0.68 0.19 310)"
+            strokeDasharray={`${c - costLen} ${costLen}`}
+            strokeDashoffset={-costLen}
+          />
+        </>
+      ) : null}
+    </svg>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="glass-panel rounded-2xl p-4">
+      <p className="text-[10px] uppercase tracking-wider text-faint">{label}</p>
+      <p className="mt-1 font-display text-lg font-semibold">{value}</p>
+    </div>
+  );
+}
+
+function DashboardTab() {
+  const { data: orders = [], isLoading } = useQuery(ordersQuery("all"));
+  const { data: packs = [] } = useQuery(packsQuery(undefined, { includeInactive: true }));
+  const { data: games = [] } = useQuery(gamesQuery({ includeInactive: true }));
+  const [range, setRange] = useState<Range>("30 Days");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+
+  const counted = orders.filter((o: Order) => {
+    if (o.status !== "completed") return false;
+    const at = new Date(o.created_at);
+    if (range === "Custom") {
+      if (from && at < new Date(from)) return false;
+      if (to && at > new Date(`${to}T23:59:59`)) return false;
+      return true;
+    }
+    const start = rangeStart(range);
+    return !start || at >= start;
+  });
+
+  const sales = round2(counted.reduce((s, o) => s + Number(o.selling_price || o.amount), 0));
+  const cost = round2(counted.reduce((s, o) => s + Number(o.real_cost), 0));
+  const profit = round2(sales - cost);
+  const aov = counted.length ? round2(sales / counted.length) : 0;
+
+  const perPack = packs
+    .map((p) => {
+      const mine = counted.filter((o) => o.package_id === p.id);
+      const s = round2(mine.reduce((sum, o) => sum + Number(o.selling_price || o.amount), 0));
+      const c = round2(mine.reduce((sum, o) => sum + Number(o.real_cost), 0));
+      return {
+        id: p.id,
+        label: p.label,
+        game: games.find((g) => g.id === p.game_id)?.name ?? "",
+        orders: mine.length,
+        sales: s,
+        cost: c,
+        profit: round2(s - c),
+      };
+    })
+    .filter((r) => r.orders > 0)
+    .sort((a, b) => b.sales - a.sales);
+
+  if (isLoading) return <p className="text-sm text-faint">Loading dashboard…</p>;
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center gap-2">
+        {RANGES.map((r) => (
+          <button
+            key={r}
+            onClick={() => setRange(r)}
+            className={
+              r === range
+                ? "brand-gradient rounded-full px-3 py-1.5 font-display text-[11px] font-semibold text-ink"
+                : "glass-panel rounded-full px-3 py-1.5 text-[11px]"
+            }
+          >
+            {r}
+          </button>
+        ))}
+        {range === "Custom" ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <input type="date" className={`${field} w-auto`} value={from} onChange={(e) => setFrom(e.target.value)} />
+            <span className="text-[11px] text-faint">to</span>
+            <input type="date" className={`${field} w-auto`} value={to} onChange={(e) => setTo(e.target.value)} />
+          </div>
+        ) : null}
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <Stat label="Total sales" value={money(sales)} />
+        <Stat label="Total cost" value={money(cost)} />
+        <Stat label="Total profit" value={money(profit)} />
+        <Stat label="Orders" value={String(counted.length)} />
+        <Stat label="Avg order value" value={money(aov)} />
+      </div>
+
+      <div className="glass-panel flex flex-wrap items-center gap-6 rounded-2xl p-5">
+        <div className="relative">
+          <Donut cost={cost} profit={profit} />
+          <div className="absolute inset-0 grid place-items-center text-center">
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-faint">Total sales</p>
+              <p className="font-display text-lg font-semibold">{money(sales)}</p>
+            </div>
+          </div>
+        </div>
+        <div className="space-y-2 text-xs">
+          <p className="flex items-center gap-2">
+            <span className="size-3 rounded-full" style={{ background: "oklch(0.72 0.14 200)" }} />
+            Total cost · {money(cost)}
+          </p>
+          <p className="flex items-center gap-2">
+            <span className="size-3 rounded-full" style={{ background: "oklch(0.68 0.19 310)" }} />
+            Total profit · {money(profit)}
+          </p>
+          <p className="text-[11px] text-faint">Completed orders only.</p>
+        </div>
+      </div>
+
+      <div className="glass-panel rounded-2xl p-4">
+        <p className="font-display text-sm font-semibold">Package performance</p>
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full min-w-[520px] text-left text-xs">
+            <thead className="text-[10px] uppercase tracking-wider text-faint">
+              <tr>
+                <th className="py-2 pr-3 font-normal">Package</th>
+                <th className="py-2 pr-3 font-normal">Orders</th>
+                <th className="py-2 pr-3 font-normal">Sales</th>
+                <th className="py-2 pr-3 font-normal">Cost</th>
+                <th className="py-2 font-normal">Profit</th>
+              </tr>
+            </thead>
+            <tbody>
+              {perPack.map((r) => (
+                <tr key={r.id} className="border-t border-white/10">
+                  <td className="py-2 pr-3">
+                    {r.label} <span className="text-faint">· {r.game}</span>
+                  </td>
+                  <td className="py-2 pr-3 text-faint">{r.orders}</td>
+                  <td className="py-2 pr-3">{money(r.sales)}</td>
+                  <td className="py-2 pr-3 text-faint">{money(r.cost)}</td>
+                  <td className="py-2 font-display font-semibold">{money(r.profit)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {perPack.length === 0 ? (
+            <p className="text-[11px] text-faint">No completed orders in this period.</p>
+          ) : null}
+        </div>
       </div>
     </div>
   );
