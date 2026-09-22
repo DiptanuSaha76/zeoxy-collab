@@ -40,6 +40,7 @@ export type Pack = {
   amount: number;
   price: number;
   smile_coin_cost: number;
+  smile_product_id: string | null;
   bonus_text: string | null;
   is_popular: boolean;
   is_active: boolean;

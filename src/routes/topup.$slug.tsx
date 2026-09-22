@@ -43,9 +43,7 @@ import {
   customerPrice,
 } from "@/lib/pricing";
 
-import {
-  createOrder,
-} from "@/lib/orders.functions";
+import { createUpiPayment } from "@/lib/payment.functions";
 
 import {
   useAuth,
@@ -145,10 +143,7 @@ function TopUpPage() {
     activeCoinRateQuery(),
   );
 
-  const placeOrder =
-    useServerFn(
-      createOrder,
-    );
+  const createPayment = useServerFn(createUpiPayment);
 
 
   const percent =
@@ -346,6 +341,13 @@ function TopUpPage() {
     const cleanSid =
       playerServer.trim();
 
+    if (!pack) {
+      const message = "Please select a recharge package.";
+      setVerificationError(message);
+      toast.error(message);
+      return;
+    }
+
 
     /**
      * Local UID validation.
@@ -412,7 +414,7 @@ function TopUpPage() {
        */
       const response =
         await fetch(
-          "/api/smile/role-check",
+          "/api/smile/verify",
           {
             method: "POST",
 
@@ -427,12 +429,8 @@ function TopUpPage() {
             body:
               JSON.stringify({
                 uid: cleanUid,
-
-                ...(game.requires_server_id
-                  ? {
-                    sid: cleanSid,
-                  }
-                  : {}),
+                sid: game.requires_server_id ? cleanSid : "",
+                packageId: pack.id,
               }),
           },
         );
@@ -472,7 +470,7 @@ function TopUpPage() {
       ) {
         throw new Error(
           result?.error ||
-            "This player ID could not be verified.",
+          "This player ID could not be verified.",
         );
       }
 
@@ -685,46 +683,27 @@ function TopUpPage() {
 
 
     try {
-      await placeOrder({
+      const result = await createPayment({
         data: {
-          gameId:
-            game.id,
-
-          packageId:
-            pack.id,
-
-          playerRef:
-            cleanUid,
-
-          playerServer:
-            game.requires_server_id
-              ? cleanSid
-              : null,
+          gameId: game.id,
+          packageId: pack.id,
+          playerRef: cleanUid,
+          playerServer: game.requires_server_id ? cleanSid : null,
         },
       });
 
-
-      toast.success(
-        "Order placed — delivery in progress",
-      );
-
-
-      navigate({
-        to: "/orders",
-      });
+      window.location.assign(result.paymentUrl);
     } catch (error) {
-      console.error(
-        "[Checkout] Order error:",
-        error,
-      );
+      console.error("[Checkout] Payment error:", error);
 
-      toast.error(
-        "Could not place your order",
-      );
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Could not create payment";
+
+      toast.error(message);
     } finally {
-      setSubmitting(
-        false,
-      );
+      setSubmitting(false);
     }
   }
 

@@ -49,6 +49,11 @@ import {
   removeAdmin,
   reorderGames,
 } from "@/lib/admin.functions";
+import {
+  assignSmileProduct,
+  listSmileProducts,
+  type SmileProduct,
+} from "@/lib/smile.functions";
 
 const uploadGameImage = uploadStoreImage;
 
@@ -73,6 +78,7 @@ const TABS = [
   "Banners",
   "Orders",
   "Clients",
+  "Smile Products",
   "Smile Coin",
   "Discount",
   "Admins",
@@ -133,6 +139,7 @@ function AdminPage() {
         {tab === "Banners" && <BannersTab />}
         {tab === "Orders" && <OrdersTab />}
         {tab === "Clients" && <ClientsTab />}
+        {tab === "Smile Products" && <SmileProductsTab />}
         {tab === "Smile Coin" && <SmileCoinTab />}
         {tab === "Discount" && <DiscountTab />}
         {tab === "Admins" && <AdminsTab />}
@@ -205,10 +212,10 @@ function SortableGameRow({
         transform: CSS.Transform.toString(transform),
         transition,
       }}
-      className={`glass-panel flex w-full min-w-0 flex-wrap items-center gap-3 rounded-2xl p-3 ${isDragging ? "opacity-60" : ""
+      className={`glass-panel flex items-center justify-between gap-3 rounded-2xl p-3 ${isDragging ? "opacity-60" : ""
         }`}
     >
-      <div className="flex min-w-0 flex-1 items-center gap-3">
+      <div className="flex min-w-0 items-center gap-3">
         <button
           type="button"
           aria-label={`Reorder ${g.name}`}
@@ -232,7 +239,7 @@ function SortableGameRow({
         </div>
       </div>
 
-      <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:shrink-0">
+      <div className="flex shrink-0 flex-wrap gap-2">
         <button
           type="button"
           className={btn}
@@ -443,8 +450,8 @@ function GamesTab() {
   }
 
   return (
-    <div className="grid min-w-0 gap-5 lg:grid-cols-[1fr_1.1fr] lg:items-start">
-      <div className="glass-panel order-2 min-w-0 rounded-2xl p-4 lg:order-none">
+    <div className="grid gap-5 lg:grid-cols-[1fr_1.1fr] lg:items-start">
+      <div className="glass-panel order-2 rounded-2xl p-4 lg:order-none">
         <p className="font-display text-sm font-semibold">{editing ? "Edit game" : "Add game"}</p>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <label><Label>Name</Label><input className={field} value={form.name} onChange={(e) => set("name", e.target.value)} /></label>
@@ -515,8 +522,8 @@ function GamesTab() {
         </div>
       </div>
 
-      <div className="order-1 min-w-0 space-y-2 lg:order-none">
-        <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+      <div className="order-1 space-y-2 lg:order-none">
+        <div className="flex items-center justify-between gap-2">
           <p className="text-[10px] uppercase tracking-wider text-faint">
             Drag to reorder
           </p>
@@ -884,51 +891,514 @@ function BannersTab() {
 /* ---------------- Orders ---------------- */
 
 function OrdersTab() {
-  const qc = useQueryClient();
-  const { data: orders = [] } = useQuery(ordersQuery("all"));
-  const { data: games = [] } = useQuery(gamesQuery({ includeInactive: true }));
-  const { data: packs = [] } = useQuery(packsQuery(undefined, { includeInactive: true }));
+  type PaymentAwareOrder = Order & {
+    payment_status?: string | null;
+    payment_remark?: string | null;
+    paid_at?: string | null;
+    upiqrx_client_txn_id?: string | null;
+    upiqrx_order_id?: string | null;
+    upiqrx_payment_url?: string | null;
+    upiqrx_upi_txn_id?: string | null;
+    smile_product_id?: string | null;
+    smile_order_id?: string | null;
+    smile_status?: string | null;
+    smile_remark?: string | null;
+    completed_at?: string | null;
+  };
 
-  async function setStatus(id: string, status: string) {
-    const { error } = await supabase.from("orders").update({ status }).eq("id", id);
+  const qc = useQueryClient();
+  const [selectedOrder, setSelectedOrder] =
+    useState<PaymentAwareOrder | null>(null);
+
+  /*
+   * Read the full order row here instead of the old ordersQuery projection so
+   * the Admin Orders screen can immediately see the payment lifecycle fields.
+   *
+   * This is intentionally cast locally because Supabase generated types may
+   * lag behind a newly-added column until types.ts is regenerated.
+   */
+  const ordersQueryAdmin = useQuery({
+    queryKey: ["orders", "admin-payment-aware"],
+    queryFn: async (): Promise<PaymentAwareOrder[]> => {
+      const { data, error } = await supabase
+        .from("orders")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(500);
+
+      if (error) throw error;
+
+      return (data ?? []) as unknown as PaymentAwareOrder[];
+    },
+    refetchInterval: 4000,
+    refetchOnWindowFocus: true,
+  });
+
+  const { data: orders = [], isLoading, error: ordersError } =
+    ordersQueryAdmin;
+
+  const { data: games = [] } = useQuery(
+    gamesQuery({ includeInactive: true }),
+  );
+  const { data: packs = [] } = useQuery(
+    packsQuery(undefined, { includeInactive: true }),
+  );
+
+  function paymentStatus(order: PaymentAwareOrder) {
+    const raw = String(order.payment_status ?? "").toLowerCase();
+
+    if (raw === "paid" || raw === "success") return "paid";
+    if (raw === "failed") return "failed";
+
+    // Backward compatibility for orders created before payment_status existed.
+    if (order.status === "completed" || order.status === "processing") {
+      return "paid";
+    }
+
+    return "pending";
+  }
+
+  function paymentClasses(status: string) {
+    if (status === "paid") {
+      return "border-lime/30 bg-lime/10 text-lime";
+    }
+    if (status === "failed") {
+      return "border-rose/30 bg-rose/10 text-rose";
+    }
+    return "border-amber/30 bg-amber/10 text-amber";
+  }
+
+  function deliveryClasses(status: string) {
+    if (status === "completed") {
+      return "border-lime/30 bg-lime/10 text-lime";
+    }
+    if (status === "failed") {
+      return "border-rose/30 bg-rose/10 text-rose";
+    }
+    if (status === "processing") {
+      return "border-violet/30 bg-violet/10 text-violet";
+    }
+    return "border-amber/30 bg-amber/10 text-amber";
+  }
+
+  async function setStatus(
+    order: PaymentAwareOrder,
+    status: string,
+  ) {
+    const payment = paymentStatus(order);
+
+    if (
+      (status === "processing" || status === "completed") &&
+      payment !== "paid"
+    ) {
+      toast.error(
+        "Cannot mark delivery as processing/completed before payment is confirmed.",
+      );
+      return;
+    }
+
+    const { error } = await supabase
+      .from("orders")
+      .update({ status })
+      .eq("id", order.id);
+
     if (error) {
       toast.error(error.message);
       return;
     }
-    toast.success("Order updated");
-    qc.invalidateQueries({ queryKey: ["orders"] });
+
+    toast.success("Delivery status updated");
+    await qc.invalidateQueries({
+      queryKey: ["orders", "admin-payment-aware"],
+    });
+    await qc.invalidateQueries({
+      queryKey: ["orders"],
+    });
+
+    setSelectedOrder((current) =>
+      current?.id === order.id
+        ? { ...current, status }
+        : current,
+    );
   }
 
-  if (!orders.length) return <p className="text-sm text-faint">No orders yet.</p>;
+  if (isLoading) {
+    return (
+      <div className="glass-panel rounded-2xl p-4">
+        <p className="text-sm text-faint">Loading orders…</p>
+      </div>
+    );
+  }
+
+  if (ordersError) {
+    return (
+      <div className="glass-panel rounded-2xl p-4">
+        <p className="text-sm text-rose">
+          Could not load orders:{" "}
+          {ordersError instanceof Error
+            ? ordersError.message
+            : "Unknown error"}
+        </p>
+      </div>
+    );
+  }
+
+  if (!orders.length) {
+    return (
+      <div className="glass-panel rounded-2xl p-4">
+        <p className="text-sm text-faint">No orders yet.</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-2">
-      {orders.map((o) => {
-        const game = games.find((g) => g.id === o.game_id);
-        const pack = packs.find((p) => p.id === o.package_id);
-        return (
-          <div key={o.id} className="glass-panel flex flex-wrap items-center justify-between gap-3 rounded-2xl p-3">
-            <div className="min-w-0">
-              <p className="font-display text-sm font-semibold">
-                {game?.name ?? "Game"} · {pack?.label ?? "Package"}
-              </p>
-              <p className="text-[11px] text-faint">
-                ID {o.player_ref}
-                {o.player_server ? ` · Server ${o.player_server}` : ""} · {money(o.amount)} ·{" "}
-                {new Date(o.created_at).toLocaleString()}
-              </p>
-            </div>
-            <select
-              className="glass-panel rounded-xl px-3 py-2 text-xs capitalize outline-none"
-              value={o.status}
-              onChange={(e) => setStatus(o.id, e.target.value)}
-            >
-              {ORDER_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
+    <>
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="font-display text-sm font-semibold">
+              Payment-aware orders
+            </p>
+            <p className="mt-1 text-[11px] text-faint">
+              Payment updates automatically from UPIQRX. Delivery status is
+              updated by the Smile One fulfillment flow.
+            </p>
           </div>
-        );
-      })}
-    </div>
+
+          <div className="text-[11px] text-faint">
+            Auto-refreshing · {orders.length} order
+            {orders.length === 1 ? "" : "s"}
+          </div>
+        </div>
+
+        {orders.map((o) => {
+          const game = games.find((g) => g.id === o.game_id);
+          const pack = packs.find((p) => p.id === o.package_id);
+          const payment = paymentStatus(o);
+          const delivery = String(o.status || "pending").toLowerCase();
+
+          return (
+            <div
+              key={o.id}
+              className="glass-panel rounded-2xl p-3 sm:p-4"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <button
+                  type="button"
+                  className="min-w-0 flex-1 text-left"
+                  onClick={() => setSelectedOrder(o)}
+                >
+                  <p className="font-display text-sm font-semibold">
+                    {game?.name ?? "Game"} ·{" "}
+                    {pack?.label ?? "Package"}
+                  </p>
+
+                  <p className="mt-1 truncate text-[11px] text-faint">
+                    ID {o.player_ref}
+                    {o.player_server
+                      ? ` · Server ${o.player_server}`
+                      : ""}{" "}
+                    · {money(Number(o.selling_price || o.amount || 0))}
+                  </p>
+
+                  <p className="mt-1 text-[10px] text-faint">
+                    {new Date(o.created_at).toLocaleString()}
+                  </p>
+                </button>
+
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                  <span
+                    className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${paymentClasses(payment)}`}
+                  >
+                    Payment · {payment}
+                  </span>
+
+                  <span
+                    className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${deliveryClasses(delivery)}`}
+                  >
+                    Delivery · {delivery}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3">
+                <div className="min-w-0 space-y-1 text-[10px] text-faint">
+                  {o.upiqrx_upi_txn_id ? (
+                    <p className="truncate">
+                      UPI Txn:{" "}
+                      <span className="text-subtle">
+                        {o.upiqrx_upi_txn_id}
+                      </span>
+                    </p>
+                  ) : o.upiqrx_client_txn_id ? (
+                    <p className="truncate">
+                      Client Txn:{" "}
+                      <span className="text-subtle">
+                        {o.upiqrx_client_txn_id}
+                      </span>
+                    </p>
+                  ) : null}
+
+                  {o.smile_order_id ? (
+                    <p className="truncate">
+                      Smile Order:{" "}
+                      <span className="text-subtle">
+                        {o.smile_order_id}
+                      </span>
+                    </p>
+                  ) : null}
+
+                  {o.payment_remark ? (
+                    <p className="truncate">
+                      {o.payment_remark}
+                    </p>
+                  ) : null}
+                </div>
+
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    className={btn}
+                    onClick={() => setSelectedOrder(o)}
+                  >
+                    Details
+                  </button>
+
+                  <select
+                    className="glass-panel rounded-xl px-3 py-2 text-xs capitalize outline-none"
+                    value={delivery}
+                    onChange={(e) =>
+                      void setStatus(o, e.target.value)
+                    }
+                  >
+                    {ORDER_STATUSES.map((s) => (
+                      <option
+                        key={s}
+                        value={s}
+                        disabled={
+                          (s === "processing" || s === "completed") &&
+                          payment !== "paid"
+                        }
+                      >
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {selectedOrder ? (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-3 backdrop-blur-sm sm:items-center sm:p-5"
+          onMouseDown={(e) => {
+            if (e.currentTarget === e.target) {
+              setSelectedOrder(null);
+            }
+          }}
+        >
+          <div className="glass-panel max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl p-5 sm:p-6">
+            {(() => {
+              const o = selectedOrder;
+              const game = games.find((g) => g.id === o.game_id);
+              const pack = packs.find((p) => p.id === o.package_id);
+              const payment = paymentStatus(o);
+              const delivery = String(
+                o.status || "pending",
+              ).toLowerCase();
+
+              return (
+                <>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-faint">
+                        Order details
+                      </p>
+                      <h2 className="mt-1 truncate font-display text-lg font-semibold">
+                        {game?.name ?? "Game"} ·{" "}
+                        {pack?.label ?? "Package"}
+                      </h2>
+                    </div>
+
+                    <button
+                      type="button"
+                      className={btn}
+                      onClick={() => setSelectedOrder(null)}
+                    >
+                      Close
+                    </button>
+                  </div>
+
+                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                      <Label>Payment</Label>
+                      <span
+                        className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${paymentClasses(payment)}`}
+                      >
+                        {payment}
+                      </span>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                      <Label>Delivery</Label>
+                      <span
+                        className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${deliveryClasses(delivery)}`}
+                      >
+                        {delivery}
+                      </span>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                      <Label>Customer</Label>
+                      <p className="text-sm text-subtle">
+                        {o.player_ref}
+                        {o.player_server
+                          ? ` · ${o.player_server}`
+                          : ""}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                      <Label>Amount paid</Label>
+                      <p className="font-display text-sm font-semibold">
+                        {money(
+                          Number(
+                            o.selling_price ||
+                              o.amount ||
+                              0,
+                          ),
+                        )}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                      <Label>UPIQRX Client Txn</Label>
+                      <p className="break-all font-mono text-[11px] text-subtle">
+                        {o.upiqrx_client_txn_id || "—"}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                      <Label>UPIQRX Gateway Order</Label>
+                      <p className="break-all font-mono text-[11px] text-subtle">
+                        {o.upiqrx_order_id || "—"}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                      <Label>UPI / UTR</Label>
+                      <p className="break-all font-mono text-[11px] text-subtle">
+                        {o.upiqrx_upi_txn_id || "—"}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                      <Label>Smile Product</Label>
+                      <p className="break-all font-mono text-[11px] text-subtle">
+                        {o.smile_product_id || "—"}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                      <Label>Smile Order</Label>
+                      <p className="break-all font-mono text-[11px] text-subtle">
+                        {o.smile_order_id || "—"}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                      <Label>Created</Label>
+                      <p className="text-[11px] text-subtle">
+                        {new Date(o.created_at).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+
+                  {(o.payment_remark ||
+                    o.smile_remark ||
+                    o.paid_at ||
+                    o.completed_at) ? (
+                    <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-3">
+                      <Label>Timeline / remarks</Label>
+
+                      {o.paid_at ? (
+                        <p className="text-[11px] text-faint">
+                          Paid ·{" "}
+                          {new Date(o.paid_at).toLocaleString()}
+                        </p>
+                      ) : null}
+
+                      {o.completed_at ? (
+                        <p className="mt-1 text-[11px] text-faint">
+                          Completed ·{" "}
+                          {new Date(
+                            o.completed_at,
+                          ).toLocaleString()}
+                        </p>
+                      ) : null}
+
+                      {o.payment_remark ? (
+                        <p className="mt-2 text-[11px] text-faint">
+                          Payment: {o.payment_remark}
+                        </p>
+                      ) : null}
+
+                      {o.smile_remark ? (
+                        <p className="mt-1 text-[11px] text-faint">
+                          Smile: {o.smile_remark}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  <div className="mt-5 flex flex-wrap justify-end gap-2">
+                    {o.upiqrx_payment_url &&
+                    payment === "pending" ? (
+                      <a
+                        href={o.upiqrx_payment_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={btn}
+                      >
+                        Open Payment
+                      </a>
+                    ) : null}
+
+                    <button
+                      type="button"
+                      className={primary}
+                      onClick={() =>
+                        void qc.invalidateQueries({
+                          queryKey: [
+                            "orders",
+                            "admin-payment-aware",
+                          ],
+                        })
+                      }
+                    >
+                      Refresh
+                    </button>
+
+                    <button
+                      type="button"
+                      className={btn}
+                      onClick={() => setSelectedOrder(null)}
+                    >
+                      Done
+                    </button>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }
 
@@ -1163,6 +1633,232 @@ function DiscountTab() {
           Currently live: {settings?.discount_percent ?? 0}% off
         </p>
       </div>
+    </div>
+  );
+}
+
+/* ---------------- Smile Products ---------------- */
+
+function SmileProductsTab() {
+  const listFn = useServerFn(listSmileProducts);
+  const assignFn = useServerFn(assignSmileProduct);
+
+  const { data: games = [] } = useQuery(
+    gamesQuery({ includeInactive: true }),
+  );
+
+  const [gameId, setGameId] = useState("");
+  const [productCode, setProductCode] = useState("");
+  const [products, setProducts] = useState<SmileProduct[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [assigning, setAssigning] = useState<string | null>(null);
+  const [packageId, setPackageId] = useState("");
+
+  const { data: packs = [] } = useQuery({
+    ...packsQuery(gameId || undefined, { includeInactive: true }),
+    enabled: Boolean(gameId),
+  });
+
+  const selectedGame = games.find((g) => g.id === gameId);
+
+  useEffect(() => {
+    if (!gameId && games.length) {
+      const first = games[0]!;
+      setGameId(first.id);
+      setProductCode(
+        first.slug.replace(/[^a-zA-Z0-9]/g, "").toLowerCase(),
+      );
+      return;
+    }
+
+    if (selectedGame) {
+      setProductCode(
+        selectedGame.slug.replace(/[^a-zA-Z0-9]/g, "").toLowerCase(),
+      );
+      setProducts([]);
+      setPackageId("");
+    }
+  }, [gameId, games, selectedGame]);
+
+  useEffect(() => {
+    if (!packageId && packs.length) {
+      setPackageId(packs[0]!.id);
+    } else if (packageId && !packs.some((p) => p.id === packageId)) {
+      setPackageId(packs[0]?.id ?? "");
+    }
+  }, [packs, packageId]);
+
+  async function loadProducts() {
+    if (!productCode.trim()) {
+      toast.error("Enter the Smile product name");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const result = await listFn({
+        data: { product: productCode.trim() },
+      });
+      setProducts(result.products);
+      if (!result.products.length) {
+        toast.error("Smile One returned no products for this product name");
+      } else {
+        toast.success(`Loaded ${result.products.length} Smile products`);
+      }
+    } catch (error) {
+      console.error("[SmileProducts] Load error:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Could not load Smile One products",
+      );
+      setProducts([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function assign(product: SmileProduct) {
+    if (!packageId) {
+      toast.error("Select a recharge package first");
+      return;
+    }
+
+    setAssigning(String(product.id));
+    try {
+      await assignFn({
+        data: {
+          packageId,
+          smileProductId: String(product.id),
+        },
+      });
+      toast.success(`Mapped Smile product ${product.id} to the selected pack`);
+    } catch (error) {
+      console.error("[SmileProducts] Assign error:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Could not assign this Smile product",
+      );
+    } finally {
+      setAssigning(null);
+    }
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="glass-panel rounded-2xl p-4">
+        <p className="font-display text-sm font-semibold">
+          Smile One Product List
+        </p>
+        <p className="mt-1 text-[11px] text-faint">
+          Load the exact product IDs returned by Smile One. These IDs are
+          required by the Role Query and Purchase APIs.
+        </p>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <label>
+            <Label>Game</Label>
+            <select
+              className={field}
+              value={gameId}
+              onChange={(e) => setGameId(e.target.value)}
+            >
+              {games.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            <Label>Smile product name</Label>
+            <input
+              className={field}
+              value={productCode}
+              onChange={(e) => setProductCode(e.target.value)}
+              placeholder="mobilelegends"
+            />
+          </label>
+        </div>
+
+        <button
+          type="button"
+          className={`${primary} mt-4`}
+          disabled={loading || !productCode.trim()}
+          onClick={loadProducts}
+        >
+          {loading ? "Loading products…" : "Load Smile Products"}
+        </button>
+      </div>
+
+      {products.length ? (
+        <div className="glass-panel rounded-2xl p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="font-display text-sm font-semibold">
+                Map a product ID
+              </p>
+              <p className="mt-1 text-[11px] text-faint">
+                Select the Zeoxy recharge pack, then assign the exact Smile
+                product ID.
+              </p>
+            </div>
+
+            <div className="w-full sm:w-72">
+              <Label>Zeoxy recharge pack</Label>
+              <select
+                className={field}
+                value={packageId}
+                onChange={(e) => setPackageId(e.target.value)}
+              >
+                {packs.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.label} · {p.amount}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="mt-4 space-y-2">
+            {products.map((product) => (
+              <div
+                key={String(product.id)}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 p-3"
+              >
+                <div className="min-w-0">
+                  <p className="font-display text-sm font-semibold">
+                    Product ID: {product.id}
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-faint">
+                    {product.spu || "No SPU description"}
+                  </p>
+                </div>
+
+                <div className="flex shrink-0 items-center gap-2">
+                  <span className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-subtle">
+                    Rs. {product.price}
+                  </span>
+                  <button
+                    type="button"
+                    className={btn}
+                    disabled={assigning === String(product.id)}
+                    onClick={() => assign(product)}
+                  >
+                    {assigning === String(product.id) ? "Assigning…" : "Assign"}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <p className="text-sm text-faint">
+          No Smile products loaded yet.
+        </p>
+      )}
     </div>
   );
 }

@@ -254,6 +254,7 @@ export type Database = {
         Row: {
           amount: number
           bonus_text: string | null
+          smile_product_id: string | null;
           created_at: string
           game_id: string
           id: string
@@ -268,6 +269,7 @@ export type Database = {
         Insert: {
           amount?: number
           bonus_text?: string | null
+          smile_product_id?: string | null;
           created_at?: string
           game_id: string
           id?: string
@@ -282,6 +284,7 @@ export type Database = {
         Update: {
           amount?: number
           bonus_text?: string | null
+          smile_product_id?: string | null;
           created_at?: string
           game_id?: string
           id?: string

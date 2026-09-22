@@ -17,8 +17,13 @@ import { Route as ContactRouteImport } from './routes/contact'
 import { Route as HowItWorksRouteImport } from './routes/how-it-works'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedOrdersRouteImport } from './routes/_authenticated/orders'
+import { Route as PaymentFailedRouteImport } from './routes/payment/failed'
+import { Route as PaymentPendingRouteImport } from './routes/payment/pending'
+import { Route as PaymentSuccessRouteImport } from './routes/payment/success'
 import { Route as TopupSlugRouteImport } from './routes/topup.$slug'
-import { Route as ApiSmileRoleCheckRouteImport } from './routes/api/smile/role-check'
+import { Route as ApiPaymentStatusRouteImport } from './routes/api/payment/status'
+import { Route as ApiPaymentWebhookRouteImport } from './routes/api/payment/webhook'
+import { Route as ApiSmileVerifyRouteImport } from './routes/api/smile/verify'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -59,14 +64,39 @@ const AuthenticatedOrdersRoute = AuthenticatedOrdersRouteImport.update({
   path: '/orders',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const PaymentFailedRoute = PaymentFailedRouteImport.update({
+  id: '/payment/failed',
+  path: '/payment/failed',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PaymentPendingRoute = PaymentPendingRouteImport.update({
+  id: '/payment/pending',
+  path: '/payment/pending',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PaymentSuccessRoute = PaymentSuccessRouteImport.update({
+  id: '/payment/success',
+  path: '/payment/success',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TopupSlugRoute = TopupSlugRouteImport.update({
   id: '/topup/$slug',
   path: '/topup/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiSmileRoleCheckRoute = ApiSmileRoleCheckRouteImport.update({
-  id: '/api/smile/role-check',
-  path: '/api/smile/role-check',
+const ApiPaymentStatusRoute = ApiPaymentStatusRouteImport.update({
+  id: '/api/payment/status',
+  path: '/api/payment/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPaymentWebhookRoute = ApiPaymentWebhookRouteImport.update({
+  id: '/api/payment/webhook',
+  path: '/api/payment/webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSmileVerifyRoute = ApiSmileVerifyRouteImport.update({
+  id: '/api/smile/verify',
+  path: '/api/smile/verify',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -78,8 +108,13 @@ export interface FileRoutesByFullPath {
   '/how-it-works': typeof HowItWorksRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/orders': typeof AuthenticatedOrdersRoute
+  '/payment/failed': typeof PaymentFailedRoute
+  '/payment/pending': typeof PaymentPendingRoute
+  '/payment/success': typeof PaymentSuccessRoute
   '/topup/$slug': typeof TopupSlugRoute
-  '/api/smile/role-check': typeof ApiSmileRoleCheckRoute
+  '/api/payment/status': typeof ApiPaymentStatusRoute
+  '/api/payment/webhook': typeof ApiPaymentWebhookRoute
+  '/api/smile/verify': typeof ApiSmileVerifyRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -89,8 +124,13 @@ export interface FileRoutesByTo {
   '/how-it-works': typeof HowItWorksRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/orders': typeof AuthenticatedOrdersRoute
+  '/payment/failed': typeof PaymentFailedRoute
+  '/payment/pending': typeof PaymentPendingRoute
+  '/payment/success': typeof PaymentSuccessRoute
   '/topup/$slug': typeof TopupSlugRoute
-  '/api/smile/role-check': typeof ApiSmileRoleCheckRoute
+  '/api/payment/status': typeof ApiPaymentStatusRoute
+  '/api/payment/webhook': typeof ApiPaymentWebhookRoute
+  '/api/smile/verify': typeof ApiSmileVerifyRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -102,8 +142,13 @@ export interface FileRoutesById {
   '/how-it-works': typeof HowItWorksRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/orders': typeof AuthenticatedOrdersRoute
+  '/payment/failed': typeof PaymentFailedRoute
+  '/payment/pending': typeof PaymentPendingRoute
+  '/payment/success': typeof PaymentSuccessRoute
   '/topup/$slug': typeof TopupSlugRoute
-  '/api/smile/role-check': typeof ApiSmileRoleCheckRoute
+  '/api/payment/status': typeof ApiPaymentStatusRoute
+  '/api/payment/webhook': typeof ApiPaymentWebhookRoute
+  '/api/smile/verify': typeof ApiSmileVerifyRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -115,8 +160,13 @@ export interface FileRouteTypes {
     | '/how-it-works'
     | '/admin'
     | '/orders'
+    | '/payment/failed'
+    | '/payment/pending'
+    | '/payment/success'
     | '/topup/$slug'
-    | '/api/smile/role-check'
+    | '/api/payment/status'
+    | '/api/payment/webhook'
+    | '/api/smile/verify'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -126,8 +176,13 @@ export interface FileRouteTypes {
     | '/how-it-works'
     | '/admin'
     | '/orders'
+    | '/payment/failed'
+    | '/payment/pending'
+    | '/payment/success'
     | '/topup/$slug'
-    | '/api/smile/role-check'
+    | '/api/payment/status'
+    | '/api/payment/webhook'
+    | '/api/smile/verify'
   id:
     | '__root__'
     | '/'
@@ -138,8 +193,13 @@ export interface FileRouteTypes {
     | '/how-it-works'
     | '/_authenticated/admin'
     | '/_authenticated/orders'
+    | '/payment/failed'
+    | '/payment/pending'
+    | '/payment/success'
     | '/topup/$slug'
-    | '/api/smile/role-check'
+    | '/api/payment/status'
+    | '/api/payment/webhook'
+    | '/api/smile/verify'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -149,8 +209,13 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   ContactRoute: typeof ContactRoute
   HowItWorksRoute: typeof HowItWorksRoute
+  PaymentFailedRoute: typeof PaymentFailedRoute
+  PaymentPendingRoute: typeof PaymentPendingRoute
+  PaymentSuccessRoute: typeof PaymentSuccessRoute
   TopupSlugRoute: typeof TopupSlugRoute
-  ApiSmileRoleCheckRoute: typeof ApiSmileRoleCheckRoute
+  ApiPaymentStatusRoute: typeof ApiPaymentStatusRoute
+  ApiPaymentWebhookRoute: typeof ApiPaymentWebhookRoute
+  ApiSmileVerifyRoute: typeof ApiSmileVerifyRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -211,6 +276,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOrdersRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/payment/failed': {
+      id: '/payment/failed'
+      path: '/payment/failed'
+      fullPath: '/payment/failed'
+      preLoaderRoute: typeof PaymentFailedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/payment/pending': {
+      id: '/payment/pending'
+      path: '/payment/pending'
+      fullPath: '/payment/pending'
+      preLoaderRoute: typeof PaymentPendingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/payment/success': {
+      id: '/payment/success'
+      path: '/payment/success'
+      fullPath: '/payment/success'
+      preLoaderRoute: typeof PaymentSuccessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/topup/$slug': {
       id: '/topup/$slug'
       path: '/topup/$slug'
@@ -218,11 +304,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TopupSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/smile/role-check': {
-      id: '/api/smile/role-check'
-      path: '/api/smile/role-check'
-      fullPath: '/api/smile/role-check'
-      preLoaderRoute: typeof ApiSmileRoleCheckRouteImport
+    '/api/payment/status': {
+      id: '/api/payment/status'
+      path: '/api/payment/status'
+      fullPath: '/api/payment/status'
+      preLoaderRoute: typeof ApiPaymentStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/payment/webhook': {
+      id: '/api/payment/webhook'
+      path: '/api/payment/webhook'
+      fullPath: '/api/payment/webhook'
+      preLoaderRoute: typeof ApiPaymentWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/smile/verify': {
+      id: '/api/smile/verify'
+      path: '/api/smile/verify'
+      fullPath: '/api/smile/verify'
+      preLoaderRoute: typeof ApiSmileVerifyRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -248,8 +348,13 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   ContactRoute: ContactRoute,
   HowItWorksRoute: HowItWorksRoute,
+  PaymentFailedRoute: PaymentFailedRoute,
+  PaymentPendingRoute: PaymentPendingRoute,
+  PaymentSuccessRoute: PaymentSuccessRoute,
   TopupSlugRoute: TopupSlugRoute,
-  ApiSmileRoleCheckRoute: ApiSmileRoleCheckRoute,
+  ApiPaymentStatusRoute: ApiPaymentStatusRoute,
+  ApiPaymentWebhookRoute: ApiPaymentWebhookRoute,
+  ApiSmileVerifyRoute: ApiSmileVerifyRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
