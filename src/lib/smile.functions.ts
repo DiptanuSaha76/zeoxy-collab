@@ -1,6 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { createHash } from "node:crypto";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const listProductsSchema = z.object({
@@ -18,18 +17,27 @@ export type SmileProduct = {
   price: string | number;
 };
 
-function makeSign(
+async function makeSign(
   params: Record<string, string>,
   merchantKey: string,
-): string {
+): Promise<string> {
+  // Load Node crypto only when this server function executes.
+  // This prevents Vite from bundling node:crypto into the browser.
+  const { createHash } = await import("node:crypto");
+
   const source =
     Object.keys(params)
       .sort((a, b) => a.localeCompare(b))
       .map((key) => `${key}=${params[key]}&`)
       .join("") + merchantKey;
 
-  const first = createHash("md5").update(source, "utf8").digest("hex");
-  return createHash("md5").update(first, "utf8").digest("hex");
+  const first = createHash("md5")
+    .update(source, "utf8")
+    .digest("hex");
+
+  return createHash("md5")
+    .update(first, "utf8")
+    .digest("hex");
 }
 
 async function requireAdmin(
@@ -67,18 +75,18 @@ async function postForm(
   const text = await response.text();
 
   let parsed: unknown = null;
+
   try {
     parsed = JSON.parse(text);
   } catch {
-    // Keep a useful message below when the upstream is not JSON.
+    // Keep the raw body for the HTTP error message below.
   }
 
   if (!response.ok) {
     throw new Error(
-      `Smile One HTTP ${response.status}: ${
-        typeof parsed === "object" && parsed !== null
-          ? JSON.stringify(parsed)
-          : text.slice(0, 300)
+      `Smile One HTTP ${response.status}: ${typeof parsed === "object" && parsed !== null
+        ? JSON.stringify(parsed)
+        : text.slice(0, 300)
       }`,
     );
   }
@@ -91,11 +99,13 @@ export const listSmileProducts = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
+
     await requireAdmin(supabase as any, userId);
 
     const email = process.env["SMILE_ONE_EMAIL"]?.trim();
     const uid = process.env["SMILE_ONE_UID"]?.trim();
     const key = process.env["SMILE_ONE_KEY"]?.trim();
+
     const baseUrl =
       process.env["SMILE_ONE_API_URL"]?.trim() ||
       "https://www.smile.one";
@@ -106,7 +116,7 @@ export const listSmileProducts = createServerFn({ method: "POST" })
       );
     }
 
-    const params = {
+    const params: Record<string, string> = {
       uid,
       email,
       product: data.product,
@@ -117,7 +127,7 @@ export const listSmileProducts = createServerFn({ method: "POST" })
       `${baseUrl}/smilecoin/api/productlist`,
       {
         ...params,
-        sign: makeSign(params, key),
+        sign: await makeSign(params, key),
       },
     )) as {
       status?: number;
@@ -133,12 +143,17 @@ export const listSmileProducts = createServerFn({ method: "POST" })
 
     if (result?.status !== 200) {
       throw new Error(
-        result?.message || "Smile One product list request failed",
+        result?.message ||
+        "Smile One product list request failed",
       );
     }
 
     const products = (result.data?.product ?? [])
-      .filter((p) => p.id !== undefined && p.id !== null)
+      .filter(
+        (p) =>
+          p.id !== undefined &&
+          p.id !== null,
+      )
       .map((p) => ({
         id: p.id!,
         spu: String(p.spu ?? ""),
@@ -148,38 +163,54 @@ export const listSmileProducts = createServerFn({ method: "POST" })
     return { products };
   });
 
-export const assignSmileProduct = createServerFn({ method: "POST" })
+export const assignSmileProduct = createServerFn({
+  method: "POST",
+})
   .inputValidator((data) => assignProductSchema.parse(data))
   .middleware([requireSupabaseAuth])
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
+
     await requireAdmin(supabase as any, userId);
 
     const { supabaseAdmin } =
-      await import("@/integrations/supabase/client.server");
+      await import(
+        "@/integrations/supabase/client.server"
+      );
 
-    const { data: pack, error: packError } = await (supabaseAdmin as any)
-      .from("packages")
-      .select("id, label")
-      .eq("id", data.packageId)
-      .maybeSingle();
+    const { data: pack, error: packError } =
+      await (supabaseAdmin as any)
+        .from("packages")
+        .select("id, label")
+        .eq("id", data.packageId)
+        .maybeSingle();
 
-    if (packError) throw packError;
-    if (!pack) throw new Error("Recharge package not found");
+    if (packError) {
+      throw packError;
+    }
 
-    const { error } = await (supabaseAdmin as any)
-      .from("packages")
-      .update({
-        smile_product_id: data.smileProductId,
-      })
-      .eq("id", data.packageId);
+    if (!pack) {
+      throw new Error("Recharge package not found");
+    }
 
-    if (error) throw error;
+    const { error } =
+      await (supabaseAdmin as any)
+        .from("packages")
+        .update({
+          smile_product_id:
+            data.smileProductId,
+        })
+        .eq("id", data.packageId);
+
+    if (error) {
+      throw error;
+    }
 
     return {
       ok: true,
       packageId: pack.id,
       packageLabel: pack.label,
-      smileProductId: data.smileProductId,
+      smileProductId:
+        data.smileProductId,
     };
   });

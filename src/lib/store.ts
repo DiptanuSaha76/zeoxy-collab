@@ -194,18 +194,73 @@ export const discounted = (price: number, percent: number) => {
   return round2(price * (1 - pct / 100));
 };
 
-export async function uploadStoreImage(file: File): Promise<string> {
-  const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-  const path = `${crypto.randomUUID()}.${ext}`;
+export async function uploadStoreImage(
+  file: File,
+  folder: "games" | "banners" = "games",
+): Promise<string> {
+  const MAX_SIZE = 5 * 1024 * 1024;
+
+  const allowedTypes = [
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/gif",
+    "image/avif",
+  ];
+
+  // Validate file type
+  if (!allowedTypes.includes(file.type)) {
+    throw new Error(
+      "Invalid image type. Please use JPG, PNG, WEBP, GIF or AVIF.",
+    );
+  }
+
+  // Validate file size
+  if (file.size > MAX_SIZE) {
+    throw new Error("Image must be smaller than 5 MB.");
+  }
+
+  // Keep only a safe version of the original filename
+  const originalName =
+    file.name
+      .replace(/\.[^/.]+$/, "")
+      .replace(/[^a-zA-Z0-9-_]/g, "-")
+      .replace(/-+/g, "-")
+      .slice(0, 80) || "image";
+
+  const ext =
+    file.name.split(".").pop()?.toLowerCase() ||
+    file.type.split("/")[1] ||
+    "jpg";
+
+  const fileName = `${crypto.randomUUID()}-${originalName}.${ext}`;
+
+  // Store images in separate folders
+  const path = `${folder}/${fileName}`;
+
   const { error } = await supabase.storage
-    .from("game-images")
-    .upload(path, file, { cacheControl: "31536000", upsert: false });
-  if (error) throw error;
-  const { data, error: signErr } = await supabase.storage
-    .from("game-images")
-    .createSignedUrl(path, 60 * 60 * 24 * 365 * 10);
-  if (signErr || !data?.signedUrl) throw signErr ?? new Error("Could not read the uploaded image");
-  return data.signedUrl;
+    .from("store-images")
+    .upload(path, file, {
+      cacheControl: "31536000",
+      upsert: false,
+      contentType: file.type,
+    });
+
+  if (error) {
+    throw error;
+  }
+
+  // store-images is a PUBLIC bucket,
+  // so use a permanent public URL instead of a temporary signed URL.
+  const { data } = supabase.storage
+    .from("store-images")
+    .getPublicUrl(path);
+
+  if (!data?.publicUrl) {
+    throw new Error("Could not generate the image URL.");
+  }
+
+  return data.publicUrl;
 }
 
 export const uploadGameImage = uploadStoreImage;

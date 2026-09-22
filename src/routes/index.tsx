@@ -84,7 +84,7 @@ function Home() {
               if (e.key === "ArrowRight") setSlide((s) => (s + 1) % banners.length);
               if (e.key === "ArrowLeft") setSlide((s) => (s + banners.length - 1) % banners.length);
             }}
-            className="relative aspect-[16/10] cursor-pointer select-none overflow-hidden rounded-2xl bg-muted sm:aspect-[21/8]"
+            className="relative cursor-pointer select-none overflow-hidden rounded-2xl bg-muted sm:aspect-[21/8]"
           >
             {active?.image_url ? (
               <img
@@ -92,7 +92,7 @@ function Home() {
                 alt={active.title}
                 width={1600}
                 height={640}
-                className="absolute inset-0 size-full object-cover"
+                className="block h-auto w-full sm:absolute sm:inset-0 sm:size-full sm:object-cover"
               />
             ) : null}
             {active?.badge ? (
@@ -112,7 +112,7 @@ function Home() {
                   to="/topup/$slug"
                   params={{ slug: bannerGame.slug }}
                   onClick={(e) => e.stopPropagation()}
-                  className="brand-gradient mt-3 inline-block rounded-xl px-6 py-2.5 text-center font-display text-sm font-semibold text-ink"
+                  className="brand-gradient mt-3 hidden rounded-xl px-6 py-2.5 text-center font-display text-sm font-semibold text-ink sm:inline-block"
                 >
                   Top Up
                 </Link>
@@ -271,8 +271,3 @@ function Home() {
     </PageShell>
   );
 }
-
-
-
-
-

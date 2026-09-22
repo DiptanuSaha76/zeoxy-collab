@@ -112,7 +112,7 @@ function AdminPage() {
   }
 
   return (
-    <div className="px-4 py-6 sm:px-6">
+    <div className="min-w-0 w-full overflow-x-clip px-4 py-6 sm:px-6">
       <h1 className="font-display text-2xl font-semibold">Admin panel</h1>
       <p className="mt-1 text-xs text-faint">Manage the store end to end.</p>
 
@@ -212,10 +212,10 @@ function SortableGameRow({
         transform: CSS.Transform.toString(transform),
         transition,
       }}
-      className={`glass-panel flex items-center justify-between gap-3 rounded-2xl p-3 ${isDragging ? "opacity-60" : ""
+      className={`glass-panel flex min-w-0 w-full flex-col gap-3 rounded-2xl p-3 sm:flex-row sm:items-center sm:justify-between ${isDragging ? "opacity-60" : ""
         }`}
     >
-      <div className="flex min-w-0 items-center gap-3">
+      <div className="flex min-w-0 w-full flex-1 items-center gap-3">
         <button
           type="button"
           aria-label={`Reorder ${g.name}`}
@@ -239,7 +239,7 @@ function SortableGameRow({
         </div>
       </div>
 
-      <div className="flex shrink-0 flex-wrap gap-2">
+      <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:shrink-0">
         <button
           type="button"
           className={btn}
@@ -450,17 +450,17 @@ function GamesTab() {
   }
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[1fr_1.1fr] lg:items-start">
-      <div className="glass-panel order-2 rounded-2xl p-4 lg:order-none">
+    <div className="grid min-w-0 w-full gap-5 lg:grid-cols-[1fr_1.1fr] lg:items-start">
+      <div className="glass-panel order-2 min-w-0 w-full rounded-2xl p-4 lg:order-none">
         <p className="font-display text-sm font-semibold">{editing ? "Edit game" : "Add game"}</p>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2">
           <label><Label>Name</Label><input className={field} value={form.name} onChange={(e) => set("name", e.target.value)} /></label>
           <label><Label>Slug</Label><input className={field} value={form.slug} onChange={(e) => set("slug", e.target.value.toLowerCase().replace(/\s+/g, "-"))} /></label>
           <label><Label>Category</Label><input className={field} value={form.category} onChange={(e) => set("category", e.target.value)} /></label>
           <label><Label>Currency label</Label><input className={field} value={form.currency_label} onChange={(e) => set("currency_label", e.target.value)} /></label>
           <div className="sm:col-span-2">
             <Label>Cover image</Label>
-            <div className="flex items-center gap-3">
+            <div className="flex min-w-0 flex-wrap items-center gap-3">
               {form.cover_url ? (
                 <img
                   src={form.cover_url}
@@ -481,7 +481,7 @@ function GamesTab() {
                     if (!file) return;
                     setUploading(true);
                     try {
-                      const url = await uploadGameImage(file);
+                      const url = await uploadGameImage(file, "games");
                       set("cover_url", url);
                       toast.success("Image uploaded");
                     } catch {
@@ -522,8 +522,8 @@ function GamesTab() {
         </div>
       </div>
 
-      <div className="order-1 space-y-2 lg:order-none">
-        <div className="flex items-center justify-between gap-2">
+      <div className="order-1 min-w-0 w-full space-y-2 lg:order-none">
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
           <p className="text-[10px] uppercase tracking-wider text-faint">
             Drag to reorder
           </p>
@@ -585,12 +585,23 @@ function PackagesTab() {
     amount: string;
     price: string;
     smile_coin_cost: string;
+    smile_product_id: string;
     bonus_text: string;
     is_popular: boolean;
     is_active: boolean;
     sort_order: string;
   };
-  const empty: PackForm = { label: "", amount: "0", price: "0", smile_coin_cost: "0", bonus_text: "", is_popular: false, is_active: true, sort_order: "0" };
+  const empty: PackForm = {
+    label: "",
+    amount: "0",
+    price: "0",
+    smile_coin_cost: "0",
+    smile_product_id: "",
+    bonus_text: "",
+    is_popular: false,
+    is_active: true,
+    sort_order: "0",
+  };
   const [form, setForm] = useState<PackForm>({ ...empty });
   const [editing, setEditing] = useState<string | null>(null);
   const set = <K extends keyof PackForm>(k: K, v: PackForm[K]) =>
@@ -610,20 +621,29 @@ function PackagesTab() {
       toast.error("Smile Coin cost must be zero or more");
       return;
     }
+
+    if (!form.smile_product_id.trim()) {
+      toast.error("Smile Product ID is required");
+      return;
+    }
+
     const payload = {
       game_id: gameId,
       label: form.label.trim(),
       amount: Number(form.amount) || 0,
       price: Number(form.price) || 0,
       smile_coin_cost: Number(form.smile_coin_cost) || 0,
+      smile_product_id: form.smile_product_id.trim(),
       bonus_text: form.bonus_text || null,
       is_popular: form.is_popular,
       is_active: form.is_active,
       sort_order: Number(form.sort_order) || 0,
     };
+    const packagesTable = supabase.from("packages") as any;
+
     const { error } = editing
-      ? await supabase.from("packages").update(payload).eq("id", editing)
-      : await supabase.from("packages").insert(payload);
+      ? await packagesTable.update(payload).eq("id", editing)
+      : await packagesTable.insert(payload);
     if (error) {
       toast.error(error.message);
       return;
@@ -650,6 +670,9 @@ function PackagesTab() {
       amount: String(p.amount),
       price: String(p.price),
       smile_coin_cost: String(p.smile_coin_cost ?? 0),
+      smile_product_id: String(
+        (p as Pack & { smile_product_id?: string | number }).smile_product_id ?? "",
+      ),
       bonus_text: p.bonus_text ?? "",
       is_popular: p.is_popular,
       is_active: p.is_active,
@@ -669,7 +692,34 @@ function PackagesTab() {
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <label><Label>Label</Label><input className={field} value={form.label} onChange={(e) => set("label", e.target.value)} placeholder="500 Gems" /></label>
           <label><Label>Amount</Label><input type="number" className={field} value={form.amount} onChange={(e) => set("amount", e.target.value)} /></label>
-          <label><Label>Smile Coin cost</Label><input type="number" min={0} step="0.01" className={field} value={form.smile_coin_cost} onChange={(e) => set("smile_coin_cost", e.target.value)} placeholder="65" /></label>
+          <label>
+            <Label>Smile Coin cost</Label>
+            <input
+              type="number"
+              min={0}
+              step="0.01"
+              className={field}
+              value={form.smile_coin_cost}
+              onChange={(e) =>
+                set("smile_coin_cost", e.target.value)
+              }
+              placeholder="65"
+            />
+          </label>
+          <label>
+            <Label>Smile Product ID</Label>
+            <input
+              className={field}
+              value={form.smile_product_id}
+              onChange={(e) =>
+                set("smile_product_id", e.target.value)
+              }
+              placeholder="e.g. 123456"
+            />
+          </label>
+          <p className="sm:col-span-2 -mt-1 text-[10px] text-faint">
+            Enter the Smile One product ID here so this package is ready for checkout immediately.
+          </p>
           <label><Label>Fallback price (Rs.)</Label><input type="number" className={field} value={form.price} onChange={(e) => set("price", e.target.value)} /></label>
           <label><Label>Sort order</Label><input type="number" className={field} value={form.sort_order} onChange={(e) => set("sort_order", e.target.value)} /></label>
           <label className="sm:col-span-2"><Label>Bonus text</Label><input className={field} value={form.bonus_text} onChange={(e) => set("bonus_text", e.target.value)} placeholder="+50 bonus" /></label>
@@ -717,6 +767,11 @@ function PackagesTab() {
               <p className="text-[11px] text-faint">
                 {money(customerPrice(p, rate, settings?.discount_percent ?? 0))}
                 {p.smile_coin_cost ? ` · ${p.smile_coin_cost} coins` : ""}
+                {(p as Pack & { smile_product_id?: string | number }).smile_product_id
+                  ? ` · Product ${String(
+                      (p as Pack & { smile_product_id?: string | number }).smile_product_id,
+                    )}`
+                  : ""}
                 {p.is_popular ? " · popular" : ""}
                 {p.is_active ? "" : " · hidden"}
               </p>
@@ -841,7 +896,7 @@ function BannersTab() {
                     if (!file) return;
                     setUploading(true);
                     try {
-                      const url = await uploadStoreImage(file);
+                      const url = await uploadStoreImage(file, "banners");
                       set("image_url", url);
                       toast.success("Image uploaded");
                     } catch {

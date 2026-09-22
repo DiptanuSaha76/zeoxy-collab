@@ -1,6 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { createHash, randomInt } from "node:crypto";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { orderPricing, type CoinRate } from "@/lib/pricing";
 
@@ -23,15 +22,27 @@ type SmileCreateOrderResponse = {
   order_id?: string | number;
 };
 
-function smileSign(params: Record<string, string>, key: string) {
+async function smileSign(
+  params: Record<string, string>,
+  key: string,
+): Promise<string> {
+  // Load Node crypto only when the server function executes.
+  // This prevents Vite from trying to bundle node:crypto into the browser.
+  const { createHash } = await import("node:crypto");
+
   const source =
     Object.keys(params)
       .sort((a, b) => a.localeCompare(b))
       .map((k) => `${k}=${params[k]}&`)
       .join("") + key;
 
-  const first = createHash("md5").update(source, "utf8").digest("hex");
-  return createHash("md5").update(first, "utf8").digest("hex");
+  const first = createHash("md5")
+    .update(source, "utf8")
+    .digest("hex");
+
+  return createHash("md5")
+    .update(first, "utf8")
+    .digest("hex");
 }
 
 function smileProductName(slug: string) {
@@ -125,7 +136,7 @@ async function verifySmileRole(args: {
     `${baseUrl}/smilecoin/api/getrole`,
     {
       ...params,
-      sign: smileSign(params, key),
+      sign: await smileSign(params, key),
     },
   )) as SmileRoleResponse;
 
@@ -166,7 +177,7 @@ async function createSmileOrder(args: {
     `${baseUrl}/smilecoin/api/createorder`,
     {
       ...params,
-      sign: smileSign(params, key),
+      sign: await smileSign(params, key),
     },
   )) as SmileCreateOrderResponse;
 
@@ -290,7 +301,8 @@ export const createUpiPayment = createServerFn({ method: "POST" })
       playerServer,
     });
 
-    const clientTxnId = `ZEOXY${Date.now()}${randomInt(100000, 999999)}`;
+   const clientTxnId =
+  `ZEOXY${Date.now()}${globalThis.crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`;
 
     const { data: createdOrder, error: createOrderError } =
       await (supabaseAdmin as any)
