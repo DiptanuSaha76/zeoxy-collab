@@ -356,8 +356,12 @@ export const createUpiPayment = createServerFn({ method: "POST" })
       String(profile?.display_name ?? "").trim() ||
       customerEmail ||
       "Zeoxy Customer";
+    // Mobiles are stored in E.164 (+919876543210) for accounts created after
+    // the OTP change; the gateway wants plain local digits.
     const customerMobile =
-      String(profile?.phone ?? "").trim() || "9999999999";
+      String(profile?.phone ?? "")
+        .replace(/\D/g, "")
+        .slice(-10) || "9999999999";
 
     const gatewayResponse = await fetch(
       "https://api.upiqrx.in/api/create_order",

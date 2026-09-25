@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Moon, Sun, ShieldCheck, LogOut, LogIn, Receipt } from "lucide-react";
+import { Moon, Sun, ShieldCheck, LogOut, LogIn, Receipt, UserRound } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "@/lib/theme";
 import { useAuth } from "@/hooks/useAuth";
@@ -87,6 +87,16 @@ export function SiteHeader({ onMenuClick }: { onMenuClick: () => void }) {
           </Link>
         ) : null}
 
+        {user ? (
+          <Link
+            to="/profile"
+            className="glass-panel hidden items-center gap-2 rounded-xl px-3 py-2 text-xs text-subtle sm:flex"
+          >
+            <UserRound className="size-4" />
+            Profile
+          </Link>
+        ) : null}
+
         {/* Sign out / Sign in — desktop only */}
         {user ? (
           <button
@@ -115,11 +125,7 @@ export function SiteHeader({ onMenuClick }: { onMenuClick: () => void }) {
           aria-label="Toggle theme"
           className="glass-panel grid size-10 place-items-center rounded-xl text-subtle"
         >
-          {theme === "dark" ? (
-            <Sun className="size-4" />
-          ) : (
-            <Moon className="size-4" />
-          )}
+          {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
         </button>
       </div>
     </header>
@@ -130,8 +136,6 @@ export function SiteFooter() {
   const { isAdmin } = useAuth();
 
   return (
-    <footer className="relative z-10 mb-6 mt-8 flex items-center justify-between px-4 sm:px-6">
-    </footer>
+    <footer className="relative z-10 mb-6 mt-8 flex items-center justify-between px-4 sm:px-6"></footer>
   );
 }
-

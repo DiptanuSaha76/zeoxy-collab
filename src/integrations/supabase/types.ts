@@ -35,6 +35,27 @@ export type Database = {
         }
         Relationships: []
       }
+      auth_rate_events: {
+        Row: {
+          created_at: string
+          id: number
+          key_hash: string
+          kind: string
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          key_hash: string
+          kind: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          key_hash?: string
+          kind?: string
+        }
+        Relationships: []
+      }
       banners: {
         Row: {
           badge: string | null
@@ -311,6 +332,7 @@ export type Database = {
           created_at: string
           display_name: string | null
           id: string
+          needs_email: boolean
           phone: string | null
           username: string | null
         }
@@ -318,6 +340,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id: string
+          needs_email?: boolean
           phone?: string | null
           username?: string | null
         }
@@ -325,8 +348,54 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          needs_email?: boolean
           phone?: string | null
           username?: string | null
+        }
+        Relationships: []
+      }
+      registration_otps: {
+        Row: {
+          attempts: number
+          code_hash: string
+          consumed_at: string | null
+          created_at: string
+          display_name: string
+          email: string
+          expires_at: string
+          id: string
+          last_sent_at: string
+          phone: string
+          send_count: number
+          username: string
+        }
+        Insert: {
+          attempts?: number
+          code_hash: string
+          consumed_at?: string | null
+          created_at?: string
+          display_name: string
+          email: string
+          expires_at: string
+          id?: string
+          last_sent_at?: string
+          phone: string
+          send_count?: number
+          username: string
+        }
+        Update: {
+          attempts?: number
+          code_hash?: string
+          consumed_at?: string | null
+          created_at?: string
+          display_name?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          last_sent_at?: string
+          phone?: string
+          send_count?: number
+          username?: string
         }
         Relationships: []
       }
@@ -374,6 +443,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      auth_email_in_use: { Args: { _email: string }; Returns: boolean }
+      auth_user_id_by_email: { Args: { _email: string }; Returns: string }
       ensure_profile: { Args: never; Returns: undefined }
       has_role: {
         Args: {
@@ -382,7 +453,19 @@ export type Database = {
         }
         Returns: boolean
       }
-      login_email: { Args: { _identifier: string }; Returns: string }
+      registration_otp_attempt: {
+        Args: { _id: string }
+        Returns: {
+          attempts: number
+          code_hash: string
+          consumed_at: string
+          expires_at: string
+        }[]
+      }
+      resolve_login_email: {
+        Args: { _password: string; _phones: string[]; _username: string }
+        Returns: string
+      }
     }
     Enums: {
       app_role: "admin" | "user"
