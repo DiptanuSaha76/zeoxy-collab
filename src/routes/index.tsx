@@ -20,13 +20,13 @@ import { bannersQuery, gamesQuery } from "@/lib/store";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Recharge — Instant Game Top-Up Store" },
+      { title: "Zeoxy TopUp Store" },
       {
         name: "description",
         content:
           "Top up gems, chips and crystals for your favourite games. Instant delivery, secure payments.",
       },
-      { property: "og:title", content: "Recharge — Instant Game Top-Up Store" },
+      { property: "og:title", content: "Zeoxy TopUp Store" },
       {
         property: "og:description",
         content: "Top up gems, chips and crystals for your favourite games in seconds.",

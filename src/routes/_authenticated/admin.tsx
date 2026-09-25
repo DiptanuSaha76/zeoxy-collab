@@ -60,9 +60,9 @@ const uploadGameImage = uploadStoreImage;
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
     meta: [
-      { title: "Admin panel — Recharge" },
+      { title: "Admin panel — Zeoxy TopUp Store" },
       { name: "description", content: "Manage games, packages, banners, orders and admins." },
-      { property: "og:title", content: "Admin panel — Recharge" },
+      { property: "og:title", content: "Admin panel — Zeoxy TopUp Store" },
       { property: "og:description", content: "Manage games, packages, banners, orders and admins." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

@@ -112,10 +112,7 @@ export function MobileDrawer({ open, onClose, actions }: DrawerProps) {
             </div>
             <div>
               <p className="font-display text-base font-semibold leading-none tracking-tight text-ink">
-                Recharge
-              </p>
-              <p className="mt-0.5 text-[10px] uppercase tracking-[0.2em] text-faint">
-                Instant Top-Up
+                Zeoxy TopUp Store
               </p>
             </div>
           </Link>
@@ -164,7 +161,7 @@ export function MobileDrawer({ open, onClose, actions }: DrawerProps) {
 
         {/* Footer */}
         <div className="border-t border-black/10 px-4 py-4 dark:border-white/10">
-          <p className="text-[10px] text-faint">© 2026 Recharge</p>
+          <p className="text-[10px] text-faint">© 2026 Zeoxy TopUp Store</p>
         </div>
       </aside>
     </>

@@ -5,7 +5,7 @@ import { PageShell } from "@/components/PageShell";
 export const Route = createFileRoute("/how-it-works")({
   head: () => ({
     meta: [
-      { title: "How It Works — Recharge" },
+      { title: "How It Works — Zeoxy TopUp Store" },
       {
         name: "description",
         content:

@@ -26,16 +26,17 @@ export function SiteHeader({ onMenuClick }: { onMenuClick: () => void }) {
         <HamburgerButton onClick={onMenuClick} />
 
         <Link to="/" className="flex min-w-0 items-center gap-2">
-          <div className="brand-gradient grid size-9 shrink-0 place-items-center rounded-xl font-display font-bold text-ink">
-            R
+          <div className="size-9 shrink-0 overflow-hidden rounded-xl">
+            <img
+              src="/logo.jpeg"
+              alt="Zeoxy"
+              className="h-full w-full object-contain"
+            />
           </div>
 
           <div className="min-w-0">
             <p className="truncate font-display text-base font-semibold leading-none tracking-tight">
-              Recharge
-            </p>
-            <p className="mt-0.5 truncate text-[10px] uppercase tracking-[0.2em] text-faint">
-              Instant Top-Up
+              Zeoxy TopUp Store
             </p>
           </div>
         </Link>

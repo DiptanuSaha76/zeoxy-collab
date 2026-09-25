@@ -6,9 +6,9 @@ import { gamesQuery, money, ordersQuery, packsQuery } from "@/lib/store";
 export const Route = createFileRoute("/_authenticated/orders")({
   head: () => ({
     meta: [
-      { title: "My orders — Recharge" },
+      { title: "My orders — Zeoxy TopUp Store" },
       { name: "description", content: "Track the status of every game top-up you ordered." },
-      { property: "og:title", content: "My orders — Recharge" },
+      { property: "og:title", content: "My orders — Zeoxy TopUp Store" },
       { property: "og:description", content: "Track the status of every game top-up you ordered." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

@@ -4,11 +4,11 @@ import { PageShell } from "@/components/PageShell";
 export const Route = createFileRoute("/about")({
   head: () => ({
     meta: [
-      { title: "About Us — Recharge" },
+      { title: "About Us — Zeoxy TopUp Store" },
       {
         name: "description",
         content:
-          "Recharge is a fast, secure game top-up store. Learn who we are, what we stand for, and why thousands of players trust us.",
+          "Zeoxy TopUp Store is a fast, secure game top-up store. Learn who we are, what we stand for, and why thousands of players trust us.",
       },
     ],
   }),
@@ -66,7 +66,7 @@ function About() {
             Built by gamers, for gamers
           </h2>
           <p className="mt-1 max-w-xl text-sm text-ink/75">
-            Recharge started with a simple frustration: topping up a game
+            Zeoxy TopUp Store started with a simple frustration: topping up a game
             shouldn't take longer than playing it. So we built a store where it
             doesn't.
           </p>

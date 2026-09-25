@@ -39,12 +39,12 @@ export const Route = createFileRoute("/auth")({
   validateSearch: searchSchema,
   head: () => ({
     meta: [
-      { title: "Create your account — Recharge" },
+      { title: "Create your account — Zeoxy TopUp Store" },
       {
         name: "description",
         content: "Register or log in to buy game top-ups and track your orders.",
       },
-      { property: "og:title", content: "Create your account — Recharge" },
+      { property: "og:title", content: "Create your account — Zeoxy TopUp Store" },
       {
         property: "og:description",
         content: "Register or log in to buy game top-ups and track your orders.",
@@ -457,14 +457,15 @@ function AuthPage() {
       <Aurora />
       <div className="glass-panel relative z-10 w-full max-w-sm rounded-3xl p-6">
         <Link to="/" className="flex items-center gap-2">
-          <div className="brand-gradient grid size-9 place-items-center rounded-xl font-display font-bold text-ink">
-            R
+          <div className="size-9 shrink-0 overflow-hidden rounded-xl">
+            <img
+              src="/logo.jpeg"
+              alt="Zeoxy"
+              className="h-full w-full object-contain"
+            />
           </div>
           <div>
-            <p className="font-display text-base font-semibold leading-none">Recharge</p>
-            <p className="mt-0.5 text-[10px] uppercase tracking-[0.2em] text-faint">
-              Instant Top-Up
-            </p>
+            <p className="font-display text-base font-semibold leading-none">Zeoxy TopUp Store</p>
           </div>
         </Link>
 
@@ -600,11 +601,10 @@ function AuthPage() {
                       setIdentifierType(t.value);
                       setErrors({});
                     }}
-                    className={`flex-1 rounded-xl px-2 py-1.5 text-[11px] font-medium transition ${
-                      identifierType === t.value
+                    className={`flex-1 rounded-xl px-2 py-1.5 text-[11px] font-medium transition ${identifierType === t.value
                         ? "brand-gradient text-ink"
                         : "text-faint hover:text-current"
-                    }`}
+                      }`}
                   >
                     {t.label}
                   </button>
