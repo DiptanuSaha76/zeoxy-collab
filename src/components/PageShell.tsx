@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Moon, Sun, ShieldCheck, LogOut, LogIn, Receipt } from "lucide-react";
+import { Moon, Sun, ShieldCheck, LogOut, LogIn, Receipt, UserRound } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Aurora } from "@/components/Aurora";
 import { SiteHeader, SiteFooter } from "@/components/SiteHeader";
@@ -46,6 +46,15 @@ export function PageShell({
               {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
               {theme === "dark" ? "Light mode" : "Dark mode"}
             </button>
+            {user ? (
+              <Link
+                to="/profile"
+                onClick={close}
+                className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 font-display text-sm font-medium text-subtle"
+              >
+                <UserRound className="size-4" /> My Profile
+              </Link>
+            ) : null}
             {user ? (
               <Link
                 to="/orders"

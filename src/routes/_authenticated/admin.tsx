@@ -42,7 +42,7 @@ import {
 } from "@/lib/store";
 import { coinRateOf, computePricing, customerPrice, round2, type CoinRate } from "@/lib/pricing";
 import {
-  addAdminByEmail,
+  addAdmin,
   listAdminInvites,
   listAdmins,
   listClients,
@@ -1459,12 +1459,10 @@ function OrdersTab() {
 
 /* ---------------- Admins ---------------- */
 
-const ACCOUNT_DOMAIN = "moobit.app";
-
 function AdminsTab() {
   const listAdminsFn = useServerFn(listAdmins);
   const listInvitesFn = useServerFn(listAdminInvites);
-  const addFn = useServerFn(addAdminByEmail);
+  const addFn = useServerFn(addAdmin);
   const removeFn = useServerFn(removeAdmin);
   const qc = useQueryClient();
   const [value, setValue] = useState("");
@@ -1473,11 +1471,6 @@ function AdminsTab() {
   const admins = useQuery({ queryKey: ["admins"], queryFn: () => listAdminsFn({}) });
   const invites = useQuery({ queryKey: ["admin-invites"], queryFn: () => listInvitesFn({}) });
 
-  function toEmail(v: string) {
-    const t = v.trim().toLowerCase();
-    return t.includes("@") ? t : `${t}@${ACCOUNT_DOMAIN}`;
-  }
-
   async function add() {
     if (!value.trim()) {
       toast.error("Enter a username or email");
@@ -1485,8 +1478,13 @@ function AdminsTab() {
     }
     setBusy(true);
     try {
-      const res = await addFn({ data: { email: toEmail(value) } });
-      toast.success(res.invite ? "Saved — they become admin on first sign-in" : "Admin access granted");
+      const res = await addFn({ data: { identifier: value.trim() } });
+      if (!res.ok) {
+        toast.error(res.message);
+        setBusy(false);
+        return;
+      }
+      toast.success("Admin access granted");
       setValue("");
       qc.invalidateQueries({ queryKey: ["admins"] });
       qc.invalidateQueries({ queryKey: ["admin-invites"] });
@@ -1512,8 +1510,7 @@ function AdminsTab() {
       <div className="glass-panel rounded-2xl p-4">
         <p className="font-display text-sm font-semibold">Add special login</p>
         <p className="mt-1 text-[11px] text-faint">
-          Enter a username (or email). If the account doesn't exist yet, it becomes admin on first
-          sign-in.
+          Enter the username or email of an existing account to give it admin access.
         </p>
         <div className="mt-3 flex gap-2">
           <input className={field} value={value} onChange={(e) => setValue(e.target.value)} placeholder="username" />
@@ -1527,7 +1524,7 @@ function AdminsTab() {
           <div className="space-y-2">
             {(admins.data ?? []).map((a) => (
               <div key={a.id} className="glass-panel flex items-center justify-between gap-3 rounded-2xl p-3">
-                <p className="truncate text-xs">{a.email.replace(`@${ACCOUNT_DOMAIN}`, "")}</p>
+                <p className="truncate text-xs">{a.username || a.email}</p>
                 <button className={btn} onClick={() => drop({ userId: a.id, email: a.email })}>Remove</button>
               </div>
             ))}
@@ -1539,7 +1536,7 @@ function AdminsTab() {
           <div className="space-y-2">
             {(invites.data ?? []).map((i: { id: string; email: string }) => (
               <div key={i.id} className="glass-panel flex items-center justify-between gap-3 rounded-2xl p-3">
-                <p className="truncate text-xs">{i.email.replace(`@${ACCOUNT_DOMAIN}`, "")}</p>
+                <p className="truncate text-xs">{i.email}</p>
                 <button className={btn} onClick={() => drop({ email: i.email })}>Remove</button>
               </div>
             ))}

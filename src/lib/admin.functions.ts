@@ -23,9 +23,20 @@ export const listAdmins = createServerFn({ method: "GET" })
     });
     if (usersErr) throw usersErr;
     const ids = new Set((roles ?? []).map((r) => r.user_id));
+    const { data: profiles, error: profErr } = await supabaseAdmin
+      .from("profiles")
+      .select("id, username")
+      .in("id", [...ids]);
+    if (profErr) throw profErr;
+    const usernames = new Map((profiles ?? []).map((p) => [p.id, p.username ?? ""]));
     return (users.users ?? [])
       .filter((u) => ids.has(u.id))
-      .map((u) => ({ id: u.id, email: u.email ?? "", created_at: u.created_at }));
+      .map((u) => ({
+        id: u.id,
+        email: u.email ?? "",
+        username: usernames.get(u.id) ?? "",
+        created_at: u.created_at,
+      }));
   });
 
 export const listAdminInvites = createServerFn({ method: "GET" })
@@ -66,32 +77,45 @@ export const listClients = createServerFn({ method: "GET" })
     });
   });
 
-const addAdminSchema = z.object({ email: z.string().email() });
+const addAdminSchema = z.object({ identifier: z.string().trim().min(1).max(320) });
 
-export const addAdminByEmail = createServerFn({ method: "POST" })
+export const addAdmin = createServerFn({ method: "POST" })
   .inputValidator((data) => addAdminSchema.parse(data))
   .middleware([requireSupabaseAuth])
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
     await requireAdmin(supabase as any, userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const email = data.email.toLowerCase();
-    const { data: list, error: listErr } = await supabaseAdmin.auth.admin.listUsers({
-      page: 1,
-      perPage: 1000,
-    });
-    if (listErr) throw listErr;
-    const existing = list.users?.find((u) => (u.email ?? "").toLowerCase() === email);
-    if (existing) {
-      const { error } = await supabaseAdmin
-        .from("user_roles")
-        .upsert({ user_id: existing.id, role: "admin" }, { onConflict: "user_id,role" });
+    const value = data.identifier.toLowerCase();
+
+    let targetId: string | null = null;
+    if (value.includes("@")) {
+      const { data: id, error } = await supabaseAdmin.rpc("auth_user_id_by_email", {
+        _email: value,
+      });
       if (error) throw error;
-      return { created: true, invite: false };
+      targetId = typeof id === "string" ? id : null;
+    } else {
+      const { data: profile, error } = await supabaseAdmin
+        .from("profiles")
+        .select("id")
+        .eq("username", value)
+        .maybeSingle();
+      if (error) throw error;
+      targetId = profile?.id ?? null;
     }
-    const { error } = await supabase.from("admin_invites").insert({ email, invited_by: userId });
+    if (!targetId) {
+      return {
+        ok: false as const,
+        message: "No account with that username or email. They need to register first.",
+      };
+    }
+
+    const { error } = await supabaseAdmin
+      .from("user_roles")
+      .upsert({ user_id: targetId, role: "admin" }, { onConflict: "user_id,role" });
     if (error) throw error;
-    return { created: true, invite: true };
+    return { ok: true as const };
   });
 
 const removeAdminSchema = z.object({ userId: z.string().optional(), email: z.string().email().optional() });
