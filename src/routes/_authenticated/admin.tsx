@@ -54,15 +54,16 @@ import {
   listSmileProducts,
   type SmileProduct,
 } from "@/lib/smile.functions";
+import { ContactMessagesTab } from "@/components/ContactMessagesTab";
 
 const uploadGameImage = uploadStoreImage;
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
     meta: [
-      { title: "Admin panel — Zeoxy TopUp Store" },
+      { title: "Admin panel — ZEXY STORE" },
       { name: "description", content: "Manage games, packages, banners, orders and admins." },
-      { property: "og:title", content: "Admin panel — Zeoxy TopUp Store" },
+      { property: "og:title", content: "Admin panel — ZEXY STORE" },
       { property: "og:description", content: "Manage games, packages, banners, orders and admins." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -78,6 +79,7 @@ const TABS = [
   "Banners",
   "Orders",
   "Clients",
+  "Messages",
   "Smile Products",
   "Smile Coin",
   "Discount",
@@ -139,6 +141,7 @@ function AdminPage() {
         {tab === "Banners" && <BannersTab />}
         {tab === "Orders" && <OrdersTab />}
         {tab === "Clients" && <ClientsTab />}
+        {tab === "Messages" && <ContactMessagesTab />}
         {tab === "Smile Products" && <SmileProductsTab />}
         {tab === "Smile Coin" && <SmileCoinTab />}
         {tab === "Discount" && <DiscountTab />}
@@ -1853,13 +1856,13 @@ function SmileProductsTab() {
                 Map a product ID
               </p>
               <p className="mt-1 text-[11px] text-faint">
-                Select the Zeoxy recharge pack, then assign the exact Smile
+                Select the recharge pack, then assign the exact Smile
                 product ID.
               </p>
             </div>
 
             <div className="w-full sm:w-72">
-              <Label>Zeoxy recharge pack</Label>
+              <Label>ZEXY recharge pack</Label>
               <select
                 className={field}
                 value={packageId}

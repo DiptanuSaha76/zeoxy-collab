@@ -82,7 +82,7 @@ export const Route = createFileRoute(
     return {
       meta: [
         {
-          title: `Top up ${name} — Zeoxy TopUp Store`,
+          title: `Top up ${name} — ZEXY STORE`,
         },
         {
           name: "description",
@@ -92,7 +92,7 @@ export const Route = createFileRoute(
         {
           property: "og:title",
           content:
-            `Top up ${name} — Zeoxy TopUp Store`,
+            `Top up ${name} — ZEXY STORE`,
         },
         {
           property: "og:description",

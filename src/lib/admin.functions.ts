@@ -141,6 +141,7 @@ export const removeAdmin = createServerFn({ method: "POST" })
     }
     return { ok: true };
   });
+
 const reorderGamesSchema = z.object({
   order: z
     .array(
@@ -177,6 +178,97 @@ export const reorderGames = createServerFn({ method: "POST" })
     const firstError = results.find((r) => r.error)?.error;
 
     if (firstError) throw firstError;
+
+    return { ok: true };
+  });
+
+/* ---------------- Contact messages ---------------- */
+
+/*
+ * This helper intentionally does not use the overloaded public.has_role(...)
+ * RPC. Your database currently has both:
+ *   has_role(uuid, text)
+ *   has_role(uuid, app_role)
+ * so calling that RPC can produce PGRST203.
+ *
+ * Instead we check the current user's admin role directly with the server-only
+ * Supabase client.
+ */
+async function requireContactAdmin(userId: string) {
+  const { supabaseAdmin } =
+    await import("@/integrations/supabase/client.server");
+
+  const { data, error } = await supabaseAdmin
+    .from("user_roles")
+    .select("user_id")
+    .eq("user_id", userId)
+    .eq("role", "admin")
+    .maybeSingle();
+
+  if (error || !data) {
+    throw new Error("Forbidden");
+  }
+
+  return supabaseAdmin;
+}
+
+export const listContactMessages = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const supabaseAdmin = await requireContactAdmin(context.userId);
+
+    const { data, error } = await (supabaseAdmin as any)
+      .from("contact_messages")
+      .select(
+        "id, name, email, order_number, message, status, created_at, read_at, resolved_at",
+      )
+      .order("created_at", { ascending: false })
+      .limit(200);
+
+    if (error) throw error;
+
+    return data ?? [];
+  });
+
+const updateContactMessageStatusSchema = z.object({
+  id: z.string().uuid(),
+  status: z.enum(["new", "read", "resolved"]),
+});
+
+export const updateContactMessageStatus = createServerFn({ method: "POST" })
+  .inputValidator((data) =>
+    updateContactMessageStatusSchema.parse(data),
+  )
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context, data }) => {
+    const supabaseAdmin = await requireContactAdmin(context.userId);
+    const now = new Date().toISOString();
+
+    const patch: {
+      status: "new" | "read" | "resolved";
+      read_at?: string | null;
+      resolved_at?: string | null;
+    } = {
+      status: data.status,
+    };
+
+    if (data.status === "new") {
+      patch.read_at = null;
+      patch.resolved_at = null;
+    } else if (data.status === "read") {
+      patch.read_at = now;
+      patch.resolved_at = null;
+    } else {
+      patch.read_at = now;
+      patch.resolved_at = now;
+    }
+
+    const { error } = await (supabaseAdmin as any)
+      .from("contact_messages")
+      .update(patch)
+      .eq("id", data.id);
+
+    if (error) throw error;
 
     return { ok: true };
   });

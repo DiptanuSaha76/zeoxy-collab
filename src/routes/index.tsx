@@ -20,13 +20,13 @@ import { bannersQuery, gamesQuery } from "@/lib/store";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Zeoxy TopUp Store" },
+      { title: "ZEXY STORE" },
       {
         name: "description",
         content:
           "Top up gems, chips and crystals for your favourite games. Instant delivery, secure payments.",
       },
-      { property: "og:title", content: "Zeoxy TopUp Store" },
+      { property: "og:title", content: "ZEXY STORE" },
       {
         property: "og:description",
         content: "Top up gems, chips and crystals for your favourite games in seconds.",
@@ -190,7 +190,7 @@ function Home() {
         <div className="glass-panel rounded-3xl px-6 py-10 text-center sm:py-14">
           <h2 className="font-display text-xl font-semibold sm:text-2xl">Ready to top up?</h2>
           <p className="mx-auto mt-2 max-w-md text-xs text-faint sm:text-sm">
-            Join thousands of players who recharge in minutes. No sign-up required for guest checkout.
+            Join thousands of players who recharge in minutes.
           </p>
           <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
             <a

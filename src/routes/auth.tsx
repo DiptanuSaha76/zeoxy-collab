@@ -39,12 +39,12 @@ export const Route = createFileRoute("/auth")({
   validateSearch: searchSchema,
   head: () => ({
     meta: [
-      { title: "Create your account — Zeoxy TopUp Store" },
+      { title: "Create your account — ZEXY STORE" },
       {
         name: "description",
         content: "Register or log in to buy game top-ups and track your orders.",
       },
-      { property: "og:title", content: "Create your account — Zeoxy TopUp Store" },
+      { property: "og:title", content: "Create your account — ZEXY STORE" },
       {
         property: "og:description",
         content: "Register or log in to buy game top-ups and track your orders.",
@@ -460,12 +460,12 @@ function AuthPage() {
           <div className="size-9 shrink-0 overflow-hidden rounded-xl">
             <img
               src="/logo.jpeg"
-              alt="Zeoxy"
+              alt="ZEXY STORE"
               className="h-full w-full object-contain"
             />
           </div>
           <div>
-            <p className="font-display text-base font-semibold leading-none">Zeoxy TopUp Store</p>
+            <p className="font-display text-base font-semibold leading-none">ZEXY STORE</p>
           </div>
         </Link>
 

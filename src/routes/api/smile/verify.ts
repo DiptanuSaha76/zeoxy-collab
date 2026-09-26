@@ -128,10 +128,6 @@ export const Route = createFileRoute("/api/smile/verify")({
             );
           }
 
-          /*
-           * The PDF requires zoneid for Smile One Role Query.
-           * The current Zeoxy Mobile Legends flow supplies it.
-           */
           if (!zoneid) {
             return Response.json(
               {
@@ -168,12 +164,6 @@ export const Route = createFileRoute("/api/smile/verify")({
             );
           }
 
-          /*
-           * IMPORTANT:
-           * Resolve the Smile product ID on the server from the
-           * selected Zeoxy package. We do not accept productid
-           * or product amount from the browser.
-           */
           const { supabaseAdmin } =
             await import(
               "@/integrations/supabase/client.server"

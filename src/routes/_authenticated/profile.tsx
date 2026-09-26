@@ -12,9 +12,9 @@ import { money } from "@/lib/store";
 export const Route = createFileRoute("/_authenticated/profile")({
   head: () => ({
     meta: [
-      { title: "My profile — Zeoxy TopUp Store" },
+      { title: "My profile — ZEXY STORE" },
       { name: "description", content: "Your account details, username and order summary." },
-      { property: "og:title", content: "My profile — Zeoxy TopUp Store" },
+      { property: "og:title", content: "My profile — ZEXY STORE" },
       { property: "og:description", content: "Your account details, username and order summary." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

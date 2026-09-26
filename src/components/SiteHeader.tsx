@@ -29,14 +29,14 @@ export function SiteHeader({ onMenuClick }: { onMenuClick: () => void }) {
           <div className="size-9 shrink-0 overflow-hidden rounded-xl">
             <img
               src="/logo.jpeg"
-              alt="Zeoxy"
+              alt="ZEXY STORE"
               className="h-full w-full object-contain"
             />
           </div>
 
           <div className="min-w-0">
             <p className="truncate font-display text-base font-semibold leading-none tracking-tight">
-              Zeoxy TopUp Store
+              ZEXY STORE
             </p>
           </div>
         </Link>
