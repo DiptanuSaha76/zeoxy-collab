@@ -23,14 +23,14 @@ const CHANNELS = [
   {
     title: "Order support",
     sub: "Delivery in progress, stuck top-up",
-    phone: "+91 87681 96610",
-    wa: "https://wa.me/918768196610",
+    phone: "+91 94778 78717",
+    wa: "https://wa.me/919477878717",
   },
   {
     title: "Payments & resellers",
     sub: "Failed payments, wholesale accounts",
-    phone: "+91 87681 96610",
-    wa: "https://wa.me/918768196610",
+    phone: "+91 94778 78717",
+    wa: "https://wa.me/919477878717",
   },
 ];
 

@@ -1,5 +1,7 @@
 import { queryOptions } from "@tanstack/react-query";
+
 import { supabase } from "@/integrations/supabase/client";
+
 import { round2, type CoinRate } from "@/lib/pricing";
 
 export type { CoinRate };
@@ -41,6 +43,7 @@ export type Pack = {
   price: number;
   smile_coin_cost: number;
   smile_product_id: string | null;
+  image_url: string | null;
   bonus_text: string | null;
   is_popular: boolean;
   is_active: boolean;
@@ -65,7 +68,12 @@ export type Order = {
   profit: number;
 };
 
-export const ORDER_STATUSES = ["pending", "processing", "completed", "failed"] as const;
+export const ORDER_STATUSES = [
+  "pending",
+  "processing",
+  "completed",
+  "failed",
+] as const;
 
 export const gamesQuery = (opts?: { includeInactive?: boolean }) =>
   queryOptions({
@@ -91,17 +99,27 @@ export const bannersQuery = (opts?: { includeInactive?: boolean }) =>
     },
   });
 
-export const packsQuery = (gameId?: string, opts?: { includeInactive?: boolean }) =>
+export const packsQuery = (
+  gameId?: string,
+  opts?: { includeInactive?: boolean },
+) =>
   queryOptions({
-    queryKey: ["packages", gameId ?? "all", opts?.includeInactive ?? false],
+    queryKey: [
+      "packages",
+      gameId ?? "all",
+      opts?.includeInactive ?? false,
+    ],
     queryFn: async (): Promise<Pack[]> => {
       let q = supabase.from("packages").select("*").order("sort_order");
       if (gameId) q = q.eq("game_id", gameId);
       if (!opts?.includeInactive) q = q.eq("is_active", true);
       const { data, error } = await q;
       if (error) throw error;
+
       return (data ?? []).map((p) => ({
         ...p,
+        image_url:
+          (p as { image_url?: string | null }).image_url ?? null,
         price: Number(p.price),
         smile_coin_cost: Number(p.smile_coin_cost ?? 0),
       })) as Pack[];
@@ -199,7 +217,6 @@ export async function uploadStoreImage(
   folder: "games" | "banners" = "games",
 ): Promise<string> {
   const MAX_SIZE = 5 * 1024 * 1024;
-
   const allowedTypes = [
     "image/jpeg",
     "image/png",
@@ -208,19 +225,16 @@ export async function uploadStoreImage(
     "image/avif",
   ];
 
-  // Validate file type
   if (!allowedTypes.includes(file.type)) {
     throw new Error(
       "Invalid image type. Please use JPG, PNG, WEBP, GIF or AVIF.",
     );
   }
 
-  // Validate file size
   if (file.size > MAX_SIZE) {
     throw new Error("Image must be smaller than 5 MB.");
   }
 
-  // Keep only a safe version of the original filename
   const originalName =
     file.name
       .replace(/\.[^/.]+$/, "")
@@ -234,8 +248,6 @@ export async function uploadStoreImage(
     "jpg";
 
   const fileName = `${crypto.randomUUID()}-${originalName}.${ext}`;
-
-  // Store images in separate folders
   const path = `${folder}/${fileName}`;
 
   const { error } = await supabase.storage
@@ -250,8 +262,6 @@ export async function uploadStoreImage(
     throw error;
   }
 
-  // store-images is a PUBLIC bucket,
-  // so use a permanent public URL instead of a temporary signed URL.
   const { data } = supabase.storage
     .from("store-images")
     .getPublicUrl(path);

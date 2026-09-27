@@ -589,6 +589,7 @@ function PackagesTab() {
     price: string;
     smile_coin_cost: string;
     smile_product_id: string;
+    image_url: string;
     bonus_text: string;
     is_popular: boolean;
     is_active: boolean;
@@ -600,6 +601,7 @@ function PackagesTab() {
     price: "0",
     smile_coin_cost: "0",
     smile_product_id: "",
+    image_url: "",
     bonus_text: "",
     is_popular: false,
     is_active: true,
@@ -607,6 +609,7 @@ function PackagesTab() {
   };
   const [form, setForm] = useState<PackForm>({ ...empty });
   const [editing, setEditing] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const set = <K extends keyof PackForm>(k: K, v: PackForm[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
@@ -637,6 +640,7 @@ function PackagesTab() {
       price: Number(form.price) || 0,
       smile_coin_cost: Number(form.smile_coin_cost) || 0,
       smile_product_id: form.smile_product_id.trim(),
+      image_url: form.image_url || null,
       bonus_text: form.bonus_text || null,
       is_popular: form.is_popular,
       is_active: form.is_active,
@@ -675,6 +679,9 @@ function PackagesTab() {
       smile_coin_cost: String(p.smile_coin_cost ?? 0),
       smile_product_id: String(
         (p as Pack & { smile_product_id?: string | number }).smile_product_id ?? "",
+      ),
+      image_url: String(
+        (p as Pack & { image_url?: string | null }).image_url ?? "",
       ),
       bonus_text: p.bonus_text ?? "",
       is_popular: p.is_popular,
@@ -723,6 +730,61 @@ function PackagesTab() {
           <p className="sm:col-span-2 -mt-1 text-[10px] text-faint">
             Enter the Smile One product ID here so this package is ready for checkout immediately.
           </p>
+
+          <div className="sm:col-span-2">
+            <Label>Package image</Label>
+            <div className="flex min-w-0 flex-wrap items-center gap-3">
+              {form.image_url ? (
+                <img
+                  src={form.image_url}
+                  alt="Package preview"
+                  className="size-20 shrink-0 rounded-2xl object-cover"
+                />
+              ) : (
+                <div className="size-20 shrink-0 rounded-2xl bg-muted" />
+              )}
+
+              <div className="min-w-0 flex-1">
+                <input
+                  type="file"
+                  accept="image/*"
+                  disabled={uploading}
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (!file) return;
+
+                    setUploading(true);
+                    try {
+                      const url = await uploadStoreImage(file);
+                      set("image_url", url);
+                      toast.success("Package image uploaded");
+                    } catch (error) {
+                      console.error("[Packages] Image upload error:", error);
+                      toast.error("Could not upload that package image");
+                    } finally {
+                      setUploading(false);
+                    }
+                  }}
+                  className="w-full text-xs file:mr-3 file:rounded-lg file:border-0 file:bg-muted file:px-3 file:py-2 file:text-xs"
+                />
+
+                <input
+                  className={`${field} mt-2`}
+                  value={form.image_url}
+                  onChange={(e) => set("image_url", e.target.value)}
+                  placeholder="…or paste an image link"
+                />
+
+                {uploading ? (
+                  <p className="mt-1 text-[11px] text-faint">
+                    Uploading package image…
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          </div>
+
           <label><Label>Fallback price (Rs.)</Label><input type="number" className={field} value={form.price} onChange={(e) => set("price", e.target.value)} /></label>
           <label><Label>Sort order</Label><input type="number" className={field} value={form.sort_order} onChange={(e) => set("sort_order", e.target.value)} /></label>
           <label className="sm:col-span-2"><Label>Bonus text</Label><input className={field} value={form.bonus_text} onChange={(e) => set("bonus_text", e.target.value)} placeholder="+50 bonus" /></label>
@@ -741,18 +803,53 @@ function PackagesTab() {
           );
           return (
             <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3 text-[11px] text-faint">
-              <p className="mb-1 font-display text-xs font-semibold text-subtle">Price preview</p>
-              {rate ? (
-                <>
-                  <p>Coin rate: Rs. {round2(rate.coin_rate)} per coin</p>
-                  <p>Real cost: {money(preview.real_cost)} · Profit {preview.profit_percent}%</p>
-                </>
-              ) : (
-                <p>No active Smile Coin rate — the fallback price is used.</p>
-              )}
-              <p className="mt-1 font-display text-sm font-semibold text-ink">
-                Customer pays {money(shown)}
+              <p className="mb-2 font-display text-xs font-semibold text-subtle">
+                Package preview
               </p>
+
+              <div className="flex min-w-0 items-center gap-3">
+                {form.image_url ? (
+                  <img
+                    src={form.image_url}
+                    alt="Package preview"
+                    className="size-16 shrink-0 rounded-xl object-cover"
+                  />
+                ) : (
+                  <div className="size-16 shrink-0 rounded-xl bg-muted" />
+                )}
+
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-medium text-subtle">
+                    {form.label.trim() || "Package name"}
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-faint">
+                    {form.amount || "0"} · {money(shown)}
+                  </p>
+                  {form.bonus_text.trim() ? (
+                    <p className="mt-0.5 text-[10px] text-lime">
+                      {form.bonus_text.trim()}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="mt-3">
+                {rate ? (
+                  <>
+                    <p>Coin rate: Rs. {round2(rate.coin_rate)} per coin</p>
+                    <p>
+                      Real cost: {money(preview.real_cost)} · Profit{" "}
+                      {preview.profit_percent}%
+                    </p>
+                  </>
+                ) : (
+                  <p>No active Smile Coin rate — the fallback price is used.</p>
+                )}
+
+                <p className="mt-1 font-display text-sm font-semibold text-ink">
+                  Customer pays {money(shown)}
+                </p>
+              </div>
             </div>
           );
         })()}
@@ -765,9 +862,19 @@ function PackagesTab() {
       <div className="space-y-2">
         {packs.map((p) => (
           <div key={p.id} className="glass-panel flex items-center justify-between gap-3 rounded-2xl p-3">
-            <div className="min-w-0">
-              <p className="truncate font-display text-sm font-semibold">{p.label}</p>
-              <p className="text-[11px] text-faint">
+            <div className="flex min-w-0 items-center gap-3">
+              {((p as Pack & { image_url?: string | null }).image_url) ? (
+                <img
+                  src={(p as Pack & { image_url?: string | null }).image_url ?? ""}
+                  alt={p.label}
+                  className="size-12 shrink-0 rounded-xl object-cover"
+                />
+              ) : (
+                <div className="size-12 shrink-0 rounded-xl bg-muted" />
+              )}
+              <div className="min-w-0">
+                <p className="truncate font-display text-sm font-semibold">{p.label}</p>
+                <p className="text-[11px] text-faint">
                 {money(customerPrice(p, rate, settings?.discount_percent ?? 0))}
                 {p.smile_coin_cost ? ` · ${p.smile_coin_cost} coins` : ""}
                 {(p as Pack & { smile_product_id?: string | number }).smile_product_id
@@ -778,6 +885,7 @@ function PackagesTab() {
                 {p.is_popular ? " · popular" : ""}
                 {p.is_active ? "" : " · hidden"}
               </p>
+            </div>
             </div>
             <div className="flex shrink-0 gap-2">
               <button className={btn} onClick={() => edit(p)}>Edit</button>

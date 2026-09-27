@@ -7,11 +7,8 @@ import {
   CreditCard,
   BadgeCheck,
   Headset,
-  Star,
-  BadgeCheck as VerifiedIcon,
-  Send,
+  Youtube,
   Instagram,
-  Twitter,
   MessageCircle,
 } from "lucide-react";
 import { PageShell } from "@/components/PageShell";
@@ -213,21 +210,38 @@ function Home() {
       <footer className="mt-14 border-t border-white/5 px-4 pb-8 pt-10 sm:px-6">
         <div className="mx-auto grid max-w-5xl gap-8 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <p className="font-display text-sm font-semibold tracking-wide">TYS GLOBAL</p>
+            <p className="font-display text-sm font-semibold tracking-wide">ZEXY STORE</p>
             <p className="mt-2 text-[11px] leading-relaxed text-faint">
               Direct game top-ups and digital vouchers, delivered in minutes at reseller pricing.
             </p>
-            <div className="mt-3 flex gap-2">
-              {[Send, Instagram, Twitter, MessageCircle].map((Icon, i) => (
-                <a
-                  key={i}
-                  href="#"
-                  aria-label="Social link"
-                  className="flex size-7 items-center justify-center rounded-full border border-white/10 text-faint transition hover:border-violet/50 hover:text-violet"
-                >
-                  <Icon className="size-3" />
-                </a>
-                              ))}
+            <div className="mt-3 flex gap-2.5">
+              <a
+                href="#"
+                aria-label="YouTube"
+                className="flex size-9 items-center justify-center rounded-full border border-white/10 text-faint transition hover:border-violet/50 hover:text-violet"
+              >
+                <Youtube className="h-5 w-5" />
+              </a>
+
+              <a
+                href="https://whatsapp.com/channel/0029VbDd5CZADTOEX9ufET3p"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="WhatsApp"
+                className="flex size-9 items-center justify-center rounded-full border border-white/10 text-faint transition hover:border-violet/50 hover:text-violet"
+              >
+                <MessageCircle className="h-5 w-5" />
+              </a>
+
+              <a
+                href="https://www.instagram.com/zexystore.in?stkn=MTllcHA5NDdiOTcybQ=="
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Instagram"
+                className="flex size-9 items-center justify-center rounded-full border border-white/10 text-faint transition hover:border-violet/50 hover:text-violet"
+              >
+                <Instagram className="h-5 w-5" />
+              </a>
             </div>
           </div>
 
@@ -264,7 +278,7 @@ function Home() {
         </div>
 
         <div className="mx-auto mt-10 flex max-w-5xl flex-col items-center justify-between gap-2 border-t border-white/5 pt-5 text-[10px] text-faint sm:flex-row">
-          <p>© {new Date().getFullYear()} TYS GLOBAL. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} ZEXY STORE. All rights reserved.</p>
           <p>Not affiliated with the game publishers listed on this site.</p>
         </div>
       </footer>

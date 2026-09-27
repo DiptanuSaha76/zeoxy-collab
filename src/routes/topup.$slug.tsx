@@ -1003,48 +1003,48 @@ function TopUpPage() {
                       className={
                         p.id ===
                           selected
-                          ? "rounded-2xl border border-violet/60 bg-gradient-to-br from-violet/30 to-cyan/30 p-3 text-left"
-                          : "glass-panel rounded-2xl p-3 text-left"
+                          ? "rounded-2xl border border-violet/60 bg-gradient-to-br from-violet/30 to-cyan/30 p-2.5 text-left"
+                          : "glass-panel rounded-2xl p-2.5 text-left"
                       }
                     >
+                      <div className="flex items-center gap-2.5">
+                        {p.image_url ? (
+                          <img
+                            src={p.image_url}
+                            alt=""
+                            aria-hidden="true"
+                            className="size-12 shrink-0 rounded-xl object-cover sm:size-14"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div
+                            className="size-12 shrink-0 rounded-xl bg-white/5 sm:size-14"
+                            aria-hidden="true"
+                          />
+                        )}
 
-                      <p className="text-xs text-faint">
-                        {
-                          p.label
-                        }
-                      </p>
+                        <div className="min-w-0">
+                          <p className="truncate text-xs font-medium text-subtle">
+                            {p.label}
+                          </p>
 
-                      <p className="font-display text-base font-semibold">
-                        {
-                          money(
-                            priceOf(
-                              p,
-                            ),
-                          )
-                        }
-                      </p>
+                          <p className="font-display text-base font-semibold">
+                            {money(priceOf(p))}
+                          </p>
 
-                      {percent >
-                        0 ? (
-                        <p className="text-[10px] text-faint line-through">
-                          {
-                            money(
-                              listPriceOf(
-                                p,
-                              ),
-                            )
-                          }
-                        </p>
-                      ) : null}
+                          {percent > 0 ? (
+                            <p className="truncate text-[10px] text-faint line-through">
+                              {money(listPriceOf(p))}
+                            </p>
+                          ) : null}
 
-                      {p.bonus_text ? (
-                        <p className="text-[10px] font-medium text-lime">
-                          {
-                            p.bonus_text
-                          }
-                        </p>
-                      ) : null}
-
+                          {p.bonus_text ? (
+                            <p className="truncate text-[10px] font-medium text-lime">
+                              {p.bonus_text}
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
                     </button>
                   ),
                 )}
