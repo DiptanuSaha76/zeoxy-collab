@@ -276,6 +276,8 @@ export const createUpiPayment = createServerFn({ method: "POST" })
         } as CoinRate)
       : null;
 
+    // A positive package.price is an exact custom/fallback selling price.
+    // With price = 0, the existing Smile Coin + global discount calculation applies.
     const pricing = orderPricing(
       {
         price: Number(pack.price),

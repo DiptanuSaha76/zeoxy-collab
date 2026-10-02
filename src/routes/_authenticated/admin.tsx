@@ -40,7 +40,7 @@ import {
   type Order,
   type Pack,
 } from "@/lib/store";
-import { coinRateOf, computePricing, customerPrice, round2, type CoinRate } from "@/lib/pricing";
+import { coinRateOf, computePricing, customerPrice, hasFallbackPrice, round2, type CoinRate } from "@/lib/pricing";
 import {
   addAdmin,
   listAdminInvites,
@@ -785,22 +785,25 @@ function PackagesTab() {
             </div>
           </div>
 
-          <label><Label>Fallback price (Rs.)</Label><input type="number" className={field} value={form.price} onChange={(e) => set("price", e.target.value)} /></label>
+          <label><Label>Fallback / Custom selling price (Rs.)</Label><input type="number" min={0} step="0.01" className={field} value={form.price} onChange={(e) => set("price", e.target.value)} placeholder="0 = use Smile Coin pricing" /></label>
           <label><Label>Sort order</Label><input type="number" className={field} value={form.sort_order} onChange={(e) => set("sort_order", e.target.value)} /></label>
           <label className="sm:col-span-2"><Label>Bonus text</Label><input className={field} value={form.bonus_text} onChange={(e) => set("bonus_text", e.target.value)} placeholder="+50 bonus" /></label>
           <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={form.is_popular} onChange={(e) => set("is_popular", e.target.checked)} /> Popular</label>
           <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={form.is_active} onChange={(e) => set("is_active", e.target.checked)} /> Active</label>
         </div>
         {(() => {
-          const preview = computePricing(
-            { price: Number(form.price) || 0, smile_coin_cost: Number(form.smile_coin_cost) || 0 },
-            rate,
-          );
+          const previewPack = {
+            price: Number(form.price) || 0,
+            smile_coin_cost: Number(form.smile_coin_cost) || 0,
+          };
+          const preview = computePricing(previewPack, rate);
+          const usesFallback = hasFallbackPrice(previewPack);
           const shown = customerPrice(
-            { price: Number(form.price) || 0, smile_coin_cost: Number(form.smile_coin_cost) || 0 },
+            previewPack,
             rate,
             settings?.discount_percent ?? 0,
           );
+
           return (
             <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3 text-[11px] text-faint">
               <p className="mb-2 font-display text-xs font-semibold text-subtle">
@@ -834,16 +837,31 @@ function PackagesTab() {
               </div>
 
               <div className="mt-3">
-                {rate ? (
+                {usesFallback ? (
+                  <>
+                    <p className="text-cyan">Pricing mode: Custom fallback price</p>
+                    {preview.real_cost > 0 ? (
+                      <p>
+                        Real cost: {money(preview.real_cost)} · Profit {" "}
+                        {preview.profit_percent}%
+                      </p>
+                    ) : (
+                      <p>Real cost: not available</p>
+                    )}
+                    <p className="mt-1 text-[10px] text-faint">
+                      Global discount does not change a custom fallback price.
+                    </p>
+                  </>
+                ) : rate ? (
                   <>
                     <p>Coin rate: Rs. {round2(rate.coin_rate)} per coin</p>
                     <p>
-                      Real cost: {money(preview.real_cost)} · Profit{" "}
+                      Real cost: {money(preview.real_cost)} · Profit {" "}
                       {preview.profit_percent}%
                     </p>
                   </>
                 ) : (
-                  <p>No active Smile Coin rate — the fallback price is used.</p>
+                  <p>No active Smile Coin rate — set a fallback price to enable this package.</p>
                 )}
 
                 <p className="mt-1 font-display text-sm font-semibold text-ink">
@@ -853,6 +871,7 @@ function PackagesTab() {
             </div>
           );
         })()}
+
         <div className="mt-4 flex gap-2">
           <button className={primary} onClick={save}>{editing ? "Save changes" : "Add package"}</button>
           {editing ? <button className={btn} onClick={() => { setEditing(null); setForm({ ...empty }); }}>Cancel</button> : null}

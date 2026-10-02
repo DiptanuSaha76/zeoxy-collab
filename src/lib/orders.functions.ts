@@ -16,7 +16,11 @@ export const createOrder = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
 
-    const [{ data: pack, error: packErr }, { data: rate }, { data: settings }] = await Promise.all([
+    const [
+      { data: pack, error: packErr },
+      { data: rate },
+      { data: settings },
+    ] = await Promise.all([
       supabase
         .from("packages")
         .select("id, game_id, price, smile_coin_cost, is_active")
@@ -41,7 +45,7 @@ export const createOrder = createServerFn({ method: "POST" })
         } as CoinRate)
       : null;
 
-    // Prices are always recalculated server-side, never trusted from the client.
+    // Positive `price` = exact manual/fallback selling price.
     const pricing = orderPricing(
       { price: Number(pack.price), smile_coin_cost: Number(pack.smile_coin_cost ?? 0) },
       activeRate,

@@ -41,6 +41,7 @@ import {
 import {
   computePricing,
   customerPrice,
+  hasFallbackPrice,
 } from "@/lib/pricing";
 
 import { createUpiPayment } from "@/lib/payment.functions";
@@ -1032,7 +1033,7 @@ function TopUpPage() {
                             {money(priceOf(p))}
                           </p>
 
-                          {percent > 0 ? (
+                          {percent > 0 && !hasFallbackPrice(p) ? (
                             <p className="truncate text-[10px] text-faint line-through">
                               {money(listPriceOf(p))}
                             </p>
